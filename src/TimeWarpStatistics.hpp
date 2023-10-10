@@ -4,7 +4,8 @@
 #include <memory>   // for unique_ptr
 #include <cstdint>  // uint64_t
 #include <tuple>
-
+#include <string>
+#include "Latency.hpp"
 #include "TimeWarpCommunicationManager.hpp"
 
 namespace warped {
@@ -43,8 +44,8 @@ struct Stats {
         uint64_t,                   // Scheduled event swap success 22
         uint64_t,                   // Scheduled event swap failed  23
         double,                     // Design Efficiency            24
-        uint64_t                    // dummy/number of elements     25
-    > stats_;
+        uint64_t                   // dummy/number of elements     25
+    > stats_;   
 
     template<unsigned I>
     auto operator[](stats_index<I>) -> decltype(std::get<I>(stats_)) {
@@ -80,6 +81,29 @@ const stats_index<23> SCHEDULED_EVENT_SWAPS_FAILURE;
 const stats_index<24> DESIGN_EFFICIENCY;
 const stats_index<25> NUM_STATISTICS;
 
+
+template <unsigned I>
+struct latency_stats_index{
+    latency_stats_index(){}
+    static unsigned const value = I;
+};
+
+struct LatencyStats {
+
+    std::tuple<
+        util::PercentileStats,          //ProcessEvent
+        util::PercentileStats          //CompareEvent
+    > latency_stats_;   
+
+    template<unsigned I>
+    auto operator[](latency_stats_index<I>) -> decltype(std::get<I>(latency_stats_)) {
+        return std::get<I>(latency_stats_);
+    }
+};
+
+const latency_stats_index<0>  PROCESS_EVENT_LATENCY;
+const latency_stats_index<1>  COMPARE_EVENT_LATENCY;
+
 class TimeWarpStatistics {
 public:
     TimeWarpStatistics(std::shared_ptr<TimeWarpCommunicationManager> comm_manager,
@@ -114,16 +138,23 @@ public:
             global_stats_[j] += recv_array[i];
         }
     }
-
+    template <unsigned I>
+    util::PercentileStats::Estimates calculateNodeLatency(uint64_t num_worker_threads, latency_stats_index<I> j);
+    
     void calculateStats();
 
     void writeToFile(double num_seconds);
 
     void printStats();
 
+    void printLatencyStats(unsigned int num_worker_threads);
+
+    std::unique_ptr<LatencyStats []> local_latency_stats_;
+
 private:
 
     std::unique_ptr<Stats []> local_stats_;
+    
     Stats global_stats_;
 
     uint64_t *local_pos_sent_by_node_;
@@ -141,7 +172,7 @@ private:
     uint64_t *starved_obj_events_by_node_;
     uint64_t *event_swaps_success_by_node_;
     uint64_t *event_swaps_failed_by_node_;
-
+    util::PercentileStats *process_event_Latency;
     std::shared_ptr<TimeWarpCommunicationManager> comm_manager_;
 
     std::string stats_file_;

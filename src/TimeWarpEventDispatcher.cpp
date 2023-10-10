@@ -39,8 +39,6 @@ WARPED_REGISTER_POLYMORPHIC_SERIALIZABLE_CLASS(warped::NegativeEvent)
 
 namespace warped {
 
-util::PercentileStats stats;
-
 
 THREAD_LOCAL_SPECIFIER unsigned int TimeWarpEventDispatcher::thread_id;
 
@@ -142,8 +140,7 @@ void TimeWarpEventDispatcher::startSimulation(const std::vector<std::vector<Logi
         tw_stats_->writeToFile(num_seconds);
         tw_stats_->printStats();
         // Latency tracker here
-        auto result = stats.estimate();
-        std::cout<<"\n"<<result.p50<<std::endl;
+        tw_stats_->printLatencyStats(num_worker_threads_);
     }
 }
 
@@ -165,7 +162,7 @@ void TimeWarpEventDispatcher::onGVT(unsigned int gvt) {
 }
 
 void TimeWarpEventDispatcher::processEvents(unsigned int id) {
-    util::LatencyTracker tracker{ stats };
+    util::LatencyTracker tracker{ tw_stats_->local_latency_stats_[id][PROCESS_EVENT_LATENCY] };
     thread_id = id;
     unsigned int local_gvt_flag;
     unsigned int gvt = 0;

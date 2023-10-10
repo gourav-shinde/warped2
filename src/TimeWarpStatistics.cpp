@@ -11,6 +11,9 @@ void TimeWarpStatistics::initialize(unsigned int num_worker_threads, unsigned in
 
     local_stats_ = make_unique<Stats []>(num_worker_threads+1);
     local_stats_[num_worker_threads][NUM_OBJECTS] = num_objects;
+
+    local_latency_stats_ = make_unique<LatencyStats []>(num_worker_threads+1);
+    local_stats_[num_worker_threads];
 }
 
 void TimeWarpStatistics::calculateStats() {
@@ -151,7 +154,7 @@ void TimeWarpStatistics::writeToFile(double num_seconds) {
         << global_stats_[LOCAL_POSITIVE_EVENTS_SENT]  << ",\t"
         << global_stats_[REMOTE_POSITIVE_EVENTS_SENT] << ",\t"
         << global_stats_[LOCAL_NEGATIVE_EVENTS_SENT]  << ",\t"
-        << global_stats_[REMOTE_NEGATIVE_EVENTS_SENT] << ",\t"
+        << global_stats_[REMOTE_NEGATIVE_EVENTS_SENT] << ",\t" 
         << global_stats_[PRIMARY_ROLLBACKS]           << ",\t"
         << global_stats_[SECONDARY_ROLLBACKS]         << ",\t"
         << global_stats_[COAST_FORWARDED_EVENTS]      << ",\t"
@@ -162,8 +165,27 @@ void TimeWarpStatistics::writeToFile(double num_seconds) {
         << global_stats_[SCHEDULED_EVENT_SWAPS_SUCCESS] << ",\t"
         << global_stats_[SCHEDULED_EVENT_SWAPS_FAILURE] << ",\t"
         << global_stats_[AVERAGE_MAX_MEMORY]          << std::endl;
-
+    
     ofs.close();
+}
+
+template <unsigned I>
+util::PercentileStats::Estimates TimeWarpStatistics::calculateNodeLatency(uint64_t num_worker_threads, latency_stats_index<I> j){
+    util::PercentileStats::Estimates nodeLatency;
+    // avg
+    auto process_event_latency_avg=local_latency_stats_[0][j].estimate().avg;
+    for(uint64_t i=1;i<num_worker_threads;i++){
+        process_event_latency_avg = (process_event_latency_avg + local_latency_stats_[i][j].estimate().avg)/2;
+    }
+    nodeLatency.avg = process_event_latency_avg;
+    return nodeLatency;
+}
+void TimeWarpStatistics::printLatencyStats(unsigned int num_worker_threads){
+    util::PercentileStats::Estimates processEvent = calculateNodeLatency(num_worker_threads,PROCESS_EVENT_LATENCY);
+
+    std::cout<<"Latency Stats\n"
+             <<"Process Events :"       <<processEvent.avg<<"\n"
+             <<std::endl;
 }
 
 void TimeWarpStatistics::printStats() {
