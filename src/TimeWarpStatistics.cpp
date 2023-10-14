@@ -13,7 +13,6 @@ void TimeWarpStatistics::initialize(unsigned int num_worker_threads, unsigned in
     local_stats_[num_worker_threads][NUM_OBJECTS] = num_objects;
 
     local_latency_stats_ = make_unique<LatencyStats []>(num_worker_threads+1);
-    local_stats_[num_worker_threads];
 }
 
 void TimeWarpStatistics::calculateStats() {
@@ -176,15 +175,29 @@ util::PercentileStats::Estimates TimeWarpStatistics::calculateNodeLatency(uint64
     auto process_event_latency_avg=local_latency_stats_[0][j].estimate().avg;
     for(uint64_t i=1;i<num_worker_threads;i++){
         process_event_latency_avg = (process_event_latency_avg + local_latency_stats_[i][j].estimate().avg)/2;
+        std::cout<<i<<" "<<process_event_latency_avg<<std::endl;
     }
     nodeLatency.avg = process_event_latency_avg;
+
+    //p25
+    
+
+    //p50
+
+    //p75
+
+    //p90
+
+    //p99
+
     return nodeLatency;
 }
 void TimeWarpStatistics::printLatencyStats(unsigned int num_worker_threads){
     util::PercentileStats::Estimates processEvent = calculateNodeLatency(num_worker_threads,PROCESS_EVENT_LATENCY);
-
+    util::PercentileStats::Estimates compareEvent = calculateNodeLatency(num_worker_threads,COMPARE_EVENT_LATENCY);
     std::cout<<"Latency Stats\n"
              <<"Process Events :"       <<processEvent.avg<<"\n"
+             <<"Compare Events :"       <<compareEvent.avg<<"\n"
              <<std::endl;
 }
 

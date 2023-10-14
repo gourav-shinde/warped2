@@ -172,7 +172,6 @@ private:
     uint64_t *starved_obj_events_by_node_;
     uint64_t *event_swaps_success_by_node_;
     uint64_t *event_swaps_failed_by_node_;
-    util::PercentileStats *process_event_Latency;
     std::shared_ptr<TimeWarpCommunicationManager> comm_manager_;
 
     std::string stats_file_;

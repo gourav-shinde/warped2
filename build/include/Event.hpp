@@ -2,9 +2,7 @@
 #define WARPED_EVENT_HPP
 
 #include <string>
-#include "Latency.hpp"
 #include "serialization.hpp"
-#include <thread>
 
 namespace warped {
 
@@ -133,8 +131,6 @@ struct compareEvents {
 public:
     bool operator() (const std::shared_ptr<Event>& first,
                      const std::shared_ptr<Event>& second) const {
-        std::thread::id this_id = std::this_thread::get_id();
-        util::LatencyTracker tracker{ tw_stats_->local_latency_stats_[this_id][COMPARE_EVENT_LATENCY] };
         return  (first->timestamp() < second->timestamp()) ? true :
                 ((first->timestamp() != second->timestamp()) ? false :
                   ((first->send_time_ < second->send_time_) ? true :
