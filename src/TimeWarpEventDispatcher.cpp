@@ -140,7 +140,7 @@ void TimeWarpEventDispatcher::startSimulation(const std::vector<std::vector<Logi
         tw_stats_->writeToFile(num_seconds);
         tw_stats_->printStats();
         // Latency tracker here
-        tw_stats_->printLatencyStats(num_worker_threads_);
+        tw_stats_->printLatencyStats();
     }
 }
 
@@ -162,7 +162,7 @@ void TimeWarpEventDispatcher::onGVT(unsigned int gvt) {
 }
 
 void TimeWarpEventDispatcher::processEvents(unsigned int id) {
-    util::LatencyTracker tracker{ tw_stats_->local_latency_stats_[id][PROCESS_EVENT_LATENCY] };
+    util::LatencyTracker tracker{ tw_stats_->local_latency_stats_[PROCESS_EVENT_LATENCY] };
     thread_id = id;
     unsigned int local_gvt_flag;
     unsigned int gvt = 0;

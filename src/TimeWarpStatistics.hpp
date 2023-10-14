@@ -139,7 +139,7 @@ public:
         }
     }
     template <unsigned I>
-    util::PercentileStats::Estimates calculateNodeLatency(uint64_t num_worker_threads, latency_stats_index<I> j);
+    void formatLatency(latency_stats_index<I> j, const char *title);
     
     void calculateStats();
 
@@ -147,9 +147,9 @@ public:
 
     void printStats();
 
-    void printLatencyStats(unsigned int num_worker_threads);
+    void printLatencyStats();
 
-    std::unique_ptr<LatencyStats []> local_latency_stats_;
+    std::unique_ptr<LatencyStats> local_latency_stats_;
 
 private:
 
