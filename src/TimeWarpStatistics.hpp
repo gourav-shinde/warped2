@@ -104,6 +104,34 @@ struct LatencyStats {
 const latency_stats_index<0>  PROCESS_EVENT_LATENCY;
 const latency_stats_index<1>  COMPARE_EVENT_LATENCY;
 
+class TimeWarpedLatency{
+public:
+    template <unsigned I>
+    void formatLatency(latency_stats_index<I> j, const char *title);
+
+    std::unique_ptr<LatencyStats> local_latency_stats_;
+
+    void printLatencyStats();
+
+    static TimeWarpedLatency* getInstance(){
+        if(instancePtr == NULL){
+            instancePtr = new TimeWarpedLatency();
+            return instancePtr;
+        }
+        else{
+            return instancePtr;
+        }
+    }
+private:
+    TimeWarpedLatency(){
+        local_latency_stats_ = make_unique<LatencyStats>();
+    }
+    static TimeWarpedLatency* instancePtr;
+public:
+    TimeWarpedLatency(const TimeWarpedLatency& obj)=delete;
+
+};
+
 class TimeWarpStatistics {
 public:
     TimeWarpStatistics(std::shared_ptr<TimeWarpCommunicationManager> comm_manager,
@@ -138,8 +166,7 @@ public:
             global_stats_[j] += recv_array[i];
         }
     }
-    template <unsigned I>
-    void formatLatency(latency_stats_index<I> j, const char *title);
+    
     
     void calculateStats();
 
@@ -147,9 +174,9 @@ public:
 
     void printStats();
 
-    void printLatencyStats();
+    
 
-    std::unique_ptr<LatencyStats> local_latency_stats_;
+    
 
 private:
 

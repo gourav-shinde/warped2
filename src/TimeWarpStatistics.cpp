@@ -11,8 +11,6 @@ void TimeWarpStatistics::initialize(unsigned int num_worker_threads, unsigned in
 
     local_stats_ = make_unique<Stats []>(num_worker_threads+1);
     local_stats_[num_worker_threads][NUM_OBJECTS] = num_objects;
-
-    local_latency_stats_ = make_unique<LatencyStats>();
 }
 
 void TimeWarpStatistics::calculateStats() {
@@ -169,7 +167,7 @@ void TimeWarpStatistics::writeToFile(double num_seconds) {
 }
 
 template <unsigned I>
-void TimeWarpStatistics::formatLatency(latency_stats_index<I> j, const char* title){
+void TimeWarpedLatency::formatLatency(latency_stats_index<I> j, const char* title){
     util::PercentileStats::Estimates nodeLatency;
     auto latency=local_latency_stats_[j].estimate();
     // 99, 90 and 50
@@ -178,10 +176,10 @@ void TimeWarpStatistics::formatLatency(latency_stats_index<I> j, const char* tit
              <<"p90: "<<latency.p90<<"\n"
              <<"p50: "<<latency.p50<<"\n";
 }
-void TimeWarpStatistics::printLatencyStats(){
+void TimeWarpedLatency::printLatencyStats(){
     std::cout<<"Latency Stats\n";
     formatLatency(PROCESS_EVENT_LATENCY,"ProcessEvent");
-    formatLatency(COMPARE_EVENT_LATENCY, "CompareEvent");
+    // formatLatency(COMPARE_EVENT_LATENCY, "CompareEvent");
     std::cout<<"\n";
 }
 
@@ -220,7 +218,6 @@ void TimeWarpStatistics::printStats() {
 
               << "\tAverage maximum memory:    " << global_stats_[AVERAGE_MAX_MEMORY] << " MB\n"
               << "\tGVT cycles:                " << global_stats_[GVT_CYCLES] << std::endl << std::endl;
-
     delete [] local_pos_sent_by_node_;
     delete [] local_neg_sent_by_node_;
     delete [] remote_pos_sent_by_node_;

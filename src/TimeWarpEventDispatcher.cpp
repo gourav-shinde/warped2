@@ -29,6 +29,7 @@
 #include "TimeWarpOutputManager.hpp"
 #include "TimeWarpFileStreamManager.hpp"
 #include "TimeWarpTerminationManager.hpp"
+#include "TimeWarpStatistics.hpp"
 #include "TimeWarpEventSet.hpp"
 #include "utility/memory.hpp"
 #include "utility/warnings.hpp"
@@ -139,8 +140,8 @@ void TimeWarpEventDispatcher::startSimulation(const std::vector<std::vector<Logi
     if (comm_manager_->getID() == 0) {
         tw_stats_->writeToFile(num_seconds);
         tw_stats_->printStats();
-        // Latency tracker here
-        tw_stats_->printLatencyStats();
+        TimeWarpedLatency* latency=TimeWarpedLatency::getInstance();
+        latency->printLatencyStats();
     }
 }
 
@@ -162,7 +163,8 @@ void TimeWarpEventDispatcher::onGVT(unsigned int gvt) {
 }
 
 void TimeWarpEventDispatcher::processEvents(unsigned int id) {
-    util::LatencyTracker tracker{ tw_stats_->local_latency_stats_[PROCESS_EVENT_LATENCY] };
+    TimeWarpedLatency* latency=TimeWarpedLatency::getInstance();
+    util::LatencyTracker tracker{ latency->local_latency_stats_[PROCESS_EVENT_LATENCY] };
     thread_id = id;
     unsigned int local_gvt_flag;
     unsigned int gvt = 0;

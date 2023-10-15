@@ -22,7 +22,6 @@
 #include "EventDispatcher.hpp"
 #include "Event.hpp"
 #include "TimeWarpCommunicationManager.hpp"
-#include "TimeWarpStatistics.hpp"
 #include "CircularList.hpp"
 
 namespace warped {
@@ -55,6 +54,8 @@ public:
         std::unique_ptr<TimeWarpStatistics> tw_stats);
 
     void startSimulation(const std::vector<std::vector<LogicalProcess*>>& lps);
+    // tw_stats goes public for latency tracker
+    const std::unique_ptr<TimeWarpStatistics> tw_stats_;
 
 private:
     void sendEvents(std::shared_ptr<Event> source_event, std::vector<std::shared_ptr<Event>> new_events,
@@ -111,7 +112,7 @@ private:
     const std::unique_ptr<TimeWarpOutputManager> output_manager_;
     const std::unique_ptr<TimeWarpFileStreamManager> twfs_manager_;
     const std::unique_ptr<TimeWarpTerminationManager> termination_manager_;
-    const std::unique_ptr<TimeWarpStatistics> tw_stats_;
+    
 
     static THREAD_LOCAL_SPECIFIER unsigned int thread_id;
 };
