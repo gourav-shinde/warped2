@@ -3,6 +3,7 @@
 
 #include <string>
 #include "Latency.hpp"
+#include "TimeWarpStatistics.hpp"
 #include "serialization.hpp"
 
 namespace warped {
