@@ -17,7 +17,9 @@ WARPED_INSTALL_HPP_FILES = \
     src/Simulation.hpp \
     src/warped.hpp \
     src/utility/memory.hpp \
-    src/utility/warnings.hpp
+    src/utility/warnings.hpp \
+    src/Latency.hpp \
+    src/TimeWarpLatency.hpp
 
 # All other headers are listed in this variable
 WARPED_NOINST_HPP_FILES = \
@@ -92,6 +94,7 @@ WARPED_CPP_FILES = \
 	src/TimeWarpSynchronousGVTManager.cpp \
 	src/TimeWarpTerminationManager.cpp \
     src/Utils.cpp \
+    src/TimeWarpLatency.cpp \
     src/Latency.cpp
 
 
