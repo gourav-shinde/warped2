@@ -11,9 +11,6 @@ void TimeWarpStatistics::initialize(unsigned int num_worker_threads, unsigned in
 
     local_stats_ = make_unique<Stats []>(num_worker_threads+1);
     local_stats_[num_worker_threads][NUM_OBJECTS] = num_objects;
-
-    local_latency_stats_ = make_unique<LatencyStats []>(num_worker_threads+1);
-    local_stats_[num_worker_threads];
 }
 
 void TimeWarpStatistics::calculateStats() {
@@ -170,22 +167,19 @@ void TimeWarpStatistics::writeToFile(double num_seconds) {
 }
 
 template <unsigned I>
-util::PercentileStats::Estimates TimeWarpStatistics::calculateNodeLatency(uint64_t num_worker_threads, latency_stats_index<I> j){
-    util::PercentileStats::Estimates nodeLatency;
-    // avg
-    auto process_event_latency_avg=local_latency_stats_[0][j].estimate().avg;
-    for(uint64_t i=1;i<num_worker_threads;i++){
-        process_event_latency_avg = (process_event_latency_avg + local_latency_stats_[i][j].estimate().avg)/2;
-    }
-    nodeLatency.avg = process_event_latency_avg;
-    return nodeLatency;
+void TimeWarpedLatency::formatLatency(latency_stats_index<I> j, const char* title){
+    auto latency=latency_stats_[j].estimate();
+    // 99, 90 and 50
+    std::cout<<title<<"\n"
+             <<"p99: "<<latency.p99<<"\n"
+             <<"p90: "<<latency.p90<<"\n"
+             <<"p50: "<<latency.p50<<"\n";
 }
-void TimeWarpStatistics::printLatencyStats(unsigned int num_worker_threads){
-    util::PercentileStats::Estimates processEvent = calculateNodeLatency(num_worker_threads,PROCESS_EVENT_LATENCY);
-
-    std::cout<<"Latency Stats\n"
-             <<"Process Events :"       <<processEvent.avg<<"\n"
-             <<std::endl;
+void TimeWarpedLatency::printLatencyStats(){
+    std::cout<<"Latency Stats\n";
+    formatLatency(PROCESS_EVENT_LATENCY,"ProcessEvent");
+    formatLatency(COMPARE_EVENT_LATENCY, "CompareEvent");
+    std::cout<<"\n";
 }
 
 void TimeWarpStatistics::printStats() {
@@ -223,7 +217,6 @@ void TimeWarpStatistics::printStats() {
 
               << "\tAverage maximum memory:    " << global_stats_[AVERAGE_MAX_MEMORY] << " MB\n"
               << "\tGVT cycles:                " << global_stats_[GVT_CYCLES] << std::endl << std::endl;
-
     delete [] local_pos_sent_by_node_;
     delete [] local_neg_sent_by_node_;
     delete [] remote_pos_sent_by_node_;

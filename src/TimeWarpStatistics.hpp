@@ -104,6 +104,28 @@ struct LatencyStats {
 const latency_stats_index<0>  PROCESS_EVENT_LATENCY;
 const latency_stats_index<1>  COMPARE_EVENT_LATENCY;
 
+class TimeWarpedLatency{
+public:
+    template <unsigned I>
+    void formatLatency(latency_stats_index<I> j, const char *title);
+
+    LatencyStats latency_stats_;
+
+    void printLatencyStats();
+
+    static TimeWarpedLatency& getInstance(){
+        static TimeWarpedLatency instance;
+        return instance;
+    }
+    
+private:
+    TimeWarpedLatency(){}
+
+public:
+    TimeWarpedLatency(const TimeWarpedLatency& obj)=delete;
+
+};
+
 class TimeWarpStatistics {
 public:
     TimeWarpStatistics(std::shared_ptr<TimeWarpCommunicationManager> comm_manager,
@@ -138,8 +160,7 @@ public:
             global_stats_[j] += recv_array[i];
         }
     }
-    template <unsigned I>
-    util::PercentileStats::Estimates calculateNodeLatency(uint64_t num_worker_threads, latency_stats_index<I> j);
+    
     
     void calculateStats();
 
@@ -147,9 +168,9 @@ public:
 
     void printStats();
 
-    void printLatencyStats(unsigned int num_worker_threads);
+    
 
-    std::unique_ptr<LatencyStats []> local_latency_stats_;
+    
 
 private:
 
@@ -172,7 +193,6 @@ private:
     uint64_t *starved_obj_events_by_node_;
     uint64_t *event_swaps_success_by_node_;
     uint64_t *event_swaps_failed_by_node_;
-    util::PercentileStats *process_event_Latency;
     std::shared_ptr<TimeWarpCommunicationManager> comm_manager_;
 
     std::string stats_file_;
