@@ -168,7 +168,7 @@ void TimeWarpStatistics::writeToFile(double num_seconds) {
 
 template <unsigned I>
 void TimeWarpedLatency::formatLatency(latency_stats_index<I> j, const char* title){
-    auto latency=local_latency_stats_[0][j].estimate();
+    auto latency=latency_stats_[j].estimate();
     // 99, 90 and 50
     std::cout<<title<<"\n"
              <<"p99: "<<latency.p99<<"\n"
@@ -178,7 +178,7 @@ void TimeWarpedLatency::formatLatency(latency_stats_index<I> j, const char* titl
 void TimeWarpedLatency::printLatencyStats(){
     std::cout<<"Latency Stats\n";
     formatLatency(PROCESS_EVENT_LATENCY,"ProcessEvent");
-    // formatLatency(COMPARE_EVENT_LATENCY, "CompareEvent");
+    formatLatency(COMPARE_EVENT_LATENCY, "CompareEvent");
     std::cout<<"\n";
 }
 

@@ -161,11 +161,7 @@ void TimeWarpEventDispatcher::onGVT(unsigned int gvt) {
 void TimeWarpEventDispatcher::processEvents(unsigned int id) {
 
     TimeWarpedLatency *latency = TimeWarpedLatency::getInstance();
-    {
-        if(latency!=NULL){
-            std::cout<<"jumbo\n";
-        }
-    }
+    util::LatencyTracker tracker {latency->latency_stats_[PROCESS_EVENT_LATENCY]};
     thread_id = id;
     unsigned int local_gvt_flag;
     unsigned int gvt = 0;
