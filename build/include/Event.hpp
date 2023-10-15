@@ -2,6 +2,7 @@
 #define WARPED_EVENT_HPP
 
 #include <string>
+#include "Latency.hpp"
 #include "serialization.hpp"
 
 namespace warped {

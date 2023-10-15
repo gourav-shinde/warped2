@@ -109,7 +109,7 @@ public:
     template <unsigned I>
     void formatLatency(latency_stats_index<I> j, const char *title);
 
-    std::unique_ptr<LatencyStats> local_latency_stats_;
+    std::unique_ptr<LatencyStats[]> local_latency_stats_;
 
     void printLatencyStats();
 
@@ -124,7 +124,7 @@ public:
     }
 private:
     TimeWarpedLatency(){
-        local_latency_stats_ = make_unique<LatencyStats>();
+        local_latency_stats_ = make_unique<LatencyStats[]>(1);
     }
     static TimeWarpedLatency* instancePtr;
 public:

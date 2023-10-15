@@ -132,7 +132,6 @@ struct compareEvents {
 public:
     bool operator() (const std::shared_ptr<Event>& first,
                      const std::shared_ptr<Event>& second) const {
-        util::LatencyTracker tracker{ tw_stats_->local_latency_stats_[COMPARE_EVENT_LATENCY] };
         return  (first->timestamp() < second->timestamp()) ? true :
                 ((first->timestamp() != second->timestamp()) ? false :
                   ((first->send_time_ < second->send_time_) ? true :

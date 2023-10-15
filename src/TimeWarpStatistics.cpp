@@ -168,8 +168,7 @@ void TimeWarpStatistics::writeToFile(double num_seconds) {
 
 template <unsigned I>
 void TimeWarpedLatency::formatLatency(latency_stats_index<I> j, const char* title){
-    util::PercentileStats::Estimates nodeLatency;
-    auto latency=local_latency_stats_[j].estimate();
+    auto latency=local_latency_stats_[0][j].estimate();
     // 99, 90 and 50
     std::cout<<title<<"\n"
              <<"p99: "<<latency.p99<<"\n"
