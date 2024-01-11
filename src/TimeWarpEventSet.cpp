@@ -18,13 +18,13 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
 
     /* Create the input and processed queues and their locks.
        Also create the input queue-scheduler map and scheduled event pointer. */
-    input_queue_lock_ = make_unique<std::mutex []>(num_of_lps);
+    input_queue_lock_ = make_unique<std::mutex []>(num_of_lps);// .. we wont need this
 #ifdef SCHEDULE_QUEUE_SPINLOCKS
     schedule_queue_lock_ = make_unique<TicketLock []>(num_of_schedulers_);
 #else
     schedule_queue_lock_ = make_unique<std::mutex []>(num_of_schedulers_);
 #endif
-
+    // ...
     for (unsigned int scheduler_id = 0; scheduler_id < lps.size(); scheduler_id++) {
         for (unsigned int lp_id = 0; lp_id < lps[scheduler_id].size(); lp_id++) {
             input_queue_.push_back(
@@ -50,6 +50,7 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
     }
 
     /* Map worker threads to schedule queues. */
+    // .. this also remains the same???
     for (unsigned int thread_id = 0; thread_id < num_of_worker_threads; thread_id++) {
         worker_thread_scheduler_map_.push_back(thread_id % num_of_schedulers_);
     }
@@ -87,7 +88,7 @@ InsertStatus TimeWarpEventSet::insertEvent (
         return InsertStatus::StarvedObject;
     }
 
-    auto smallest_event = *input_queue_[lp_id]->begin();
+    auto smallest_event = *input_queue_[lp_id]->begin(); //..this sorts it?
     if (smallest_event == scheduled_event_pointer_[lp_id]) {
         return InsertStatus::LpOnly;
     }
