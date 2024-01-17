@@ -31,6 +31,8 @@ enum class InsertStatus {
     SchedEventSwapFailure
 };
 
+//combine process queue and input queue.
+
 class TimeWarpEventSet {
 public:
     TimeWarpEventSet() = default;
@@ -101,6 +103,7 @@ private:
     unsigned int num_of_schedulers_ = 0;
 
     // Lock to protect the schedule queues
+    //.. what is schedule queue? do we leave the lock structure as it is.?
 #ifdef SCHEDULE_QUEUE_SPINLOCKS
     std::unique_ptr<TicketLock []> schedule_queue_lock_;
 #else
@@ -124,6 +127,7 @@ private:
     std::vector<unsigned int> input_queue_scheduler_map_;
 
     // LP Migration flag
+    // you dont need this
     bool is_lp_migration_on_;
 
     // Map worker thread to a schedule queue

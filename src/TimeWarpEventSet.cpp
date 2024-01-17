@@ -245,6 +245,7 @@ void TimeWarpEventSet::startScheduling (unsigned int lp_id) {
 
     // Just simply add pointer to next event into the scheduler if input queue is not empty
     // for the given lp, otherwise set to nullptr
+    //.. why do we insert it into schedule queue???
     if (!input_queue_[lp_id]->empty()) {
         scheduled_event_pointer_[lp_id] = *input_queue_[lp_id]->begin();
         unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
@@ -256,6 +257,9 @@ void TimeWarpEventSet::startScheduling (unsigned int lp_id) {
     }
 }
 
+
+
+//.. we wont need this anymore, invalid function for new queue
 /*
  *  NOTE: This can only be called by the thread that handles event for the lp with id lp_id
  *
@@ -297,6 +301,9 @@ void TimeWarpEventSet::replenishScheduler (unsigned int lp_id) {
     }
 }
 
+
+//we dont do this anymore
+//check notes
 bool TimeWarpEventSet::cancelEvent (unsigned int lp_id, std::shared_ptr<Event> cancel_event) {
 
     bool found = false;
@@ -324,6 +331,8 @@ void TimeWarpEventSet::printEvent(std::shared_ptr<Event> event) {
               << "\tType:       " << (unsigned int)event->event_type_     << "\n";
 }
 
+
+// .. this gives the time stamp until which we need to increament the activeStart
 unsigned int TimeWarpEventSet::fossilCollect (unsigned int fossil_collect_time, unsigned int lp_id) {
 
     unsigned int count = 0;

@@ -43,6 +43,9 @@ CHECK_SPLAY_TREE
 m4_include([m4/check_circular_queue.m4])
 CHECK_CIRCULAR_QUEUE
 
+m4_include([m4/check_unified_queue.m4])
+CHECK_UNIFIED_QUEUE
+
 AC_CONFIG_HEADERS([config.h])
 
 AC_CONFIG_FILES([deps/json/Makefile])

@@ -422,4 +422,50 @@ public:
         return true;
     }
 
+    enum FindStatus {
+        ACTIVE,
+        UNPROCESSED,
+        NOTFOUND
+    };
+
+    ///
+    /// \brief find element in Unified Queue
+    /// \param element
+    /// \return
+    ///
+    FindStatus find(T element){
+        
+        bool success = false;
+        //checks first
+
+        while(!success){
+            if (isEmpty()){
+                //throw message
+                std::cout << "Queue is empty" << std::endl;
+                return NOTFOUND;
+            }
+            
+            uint32_t marker = marker_.load(std::memory_order_relaxed);
+            uint32_t markerCopy = marker;
+            setFreeSignMarker(marker, 0);
+            setActiveStartMarker(marker, nextIndex(ActiveStart(marker)));
+            #ifdef GTEST_FOUND
+                std::cout<<"increamentActiveStart called "<<std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            #endif
+            while (marker_.compare_exchange_weak(
+                    markerCopy, marker,
+                    std::memory_order_release, std::memory_order_relaxed)){
+                    #ifdef GTEST_FOUND
+                        std::cout<<"increamentActiveStart success at "<<ActiveStart(markerCopy)<<std::endl;
+                    #endif
+                    success = true;
+            }
+        }
+        return true;
+
+    }
+
+
+
 };
