@@ -145,6 +145,18 @@ public:
 
 };
 
+struct compareNegativeEvent {
+public:
+    bool operator() (const std::shared_ptr<Event>& first,
+                     const std::shared_ptr<Event>& second) const {
+        return ((first->timestamp() == second->timestamp())
+                && (first->send_time_ == second->send_time_)
+                && (first->sender_name_ == second->sender_name_)
+                && (first->generation_ == second->generation_)
+                && (first->event_type_ == EventType::POSITIVE));
+    }
+};
+
 } // namespace warped
 
 #endif

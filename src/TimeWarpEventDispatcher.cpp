@@ -235,10 +235,14 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
 
             // Check to see if event is NEGATIVE and cancel
             if (event->event_type_ == EventType::NEGATIVE) {
+#ifdef UNIFIED_QUEUE
+                bool found = event_set_->cancelEvent(current_lp_id, event);
+#else
                 event_set_->acquireInputQueueLock(current_lp_id);
                 bool found = event_set_->cancelEvent(current_lp_id, event);
                 event_set_->startScheduling(current_lp_id);
                 event_set_->releaseInputQueueLock(current_lp_id);
+#endif
 
                 if (found) {
                     tw_stats_->upCount(CANCELLED_EVENTS, thread_id);
@@ -318,9 +322,13 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
 
             // Move the next event from lp into the schedule queue
             // Also transfer old event to processed queue
+#ifdef UNIFIED_QUEUE
+            event_set_->replenishScheduler(current_lp_id);
+#else
             event_set_->acquireInputQueueLock(current_lp_id);
             event_set_->replenishScheduler(current_lp_id);
             event_set_->releaseInputQueueLock(current_lp_id);
+#endif
 
         } else {
             // This thread no longer has anything to do because it's schedule queue is empty.
@@ -455,10 +463,14 @@ void TimeWarpEventDispatcher::rollback(std::shared_ptr<Event> straggler_event) {
     // We have major problems if we are rolling back past the GVT
     assert(straggler_event->timestamp() >= gvt_manager_->getGVT());
 
+#ifdef UNIFIED_QUEUE
+    event_set_->rollback(local_lp_id, straggler_event);
+#else
     // Move processed events larger  than straggler back to input queue.
     event_set_->acquireInputQueueLock(local_lp_id);
     event_set_->rollback(local_lp_id, straggler_event);
     event_set_->releaseInputQueueLock(local_lp_id);
+#endif
 
     // Restore state by getting most recent saved state before the straggler and coast forwarding.
     auto restored_state_event = state_manager_->restoreState(straggler_event, local_lp_id,
@@ -466,12 +478,16 @@ void TimeWarpEventDispatcher::rollback(std::shared_ptr<Event> straggler_event) {
     assert(restored_state_event);
     assert(*restored_state_event < *straggler_event);
 
+    //mark event after restore_state_event as Unprocessed
+    // then do coast forwarding until u reach staggler event
+
     // Send anti-messages
     auto events_to_cancel = output_manager_->rollback(straggler_event, local_lp_id);
     if (events_to_cancel != nullptr) {
         cancelEvents(std::move(events_to_cancel));
     }
 
+    //
     coastForward(straggler_event, restored_state_event);
 }
 

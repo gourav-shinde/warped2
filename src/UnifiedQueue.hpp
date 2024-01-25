@@ -15,7 +15,7 @@
 // and returns true if the first element is smaller than the second
 // T: queue_Type
 // comparator: compare_ function which return A<B
-template <typename T, typename comparator>
+template <typename T, typename comparator, typename negativeCounterPart>
 class UnifiedQueue
 /**
  * @file UnifiedQueue.hpp
@@ -52,6 +52,7 @@ private:
     // 10 bits activeStart_, 1bit unprocessedSign, 10 bits unprocessedStart_, 1 bit freeSign, 10 bits freeStart_
     std::atomic<uint32_t> marker_; //test with this datatype
     comparator compare_; //currently not  used, as we are not sorting anymore
+    negativeCounterPart negativeCounterPart_; //used to find negative counterpart
     
 public:
     UnifiedQueue(uint16_t capacity=1024){
@@ -336,7 +337,7 @@ public:
             //run follwing code when running gtest, this adds a delay so threads collide making 
             //compare and swap fail
             #ifdef GTEST_FOUND
-                std::cout<<"called "<<element.receiveTime_<<std::endl;
+                // std::cout<<"called "<<element.receiveTime_<<std::endl;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             #endif
             
@@ -355,7 +356,7 @@ public:
                 //     queue_[insertPos] = element;
                 // }
                 #ifdef GTEST_FOUND
-                    std::cout<<"Inserted "<<element.receiveTime_<<" at "<<FreeStart(markerCopy)<<std::endl;  
+                   // std::cout<<"Inserted "<<element.receiveTime_<<" at "<<FreeStart(markerCopy)<<std::endl;  
                                 
                 #endif
                 queue_[FreeStart(markerCopy)] = Data(element);
@@ -419,7 +420,12 @@ public:
         
     }
 
+    T getValue(uint32_t index){
+        return queue_[index].getData();
+    }
+
     /// @brief fossil collect dummy function
+    /// TODO pass a count to jump to
     bool increamentActiveStart(){
         bool success = false;
         //checks first
@@ -573,7 +579,7 @@ public:
     T getPreviousUnprocessedEvent(){
         T element;
         if(getUnprocessedSign())
-            return T();
+            return element;
         else{
             //this is called after a dequeue so we need it to go before it
             uint16_t index=prevIndex(getUnprocessedStart());
@@ -583,6 +589,69 @@ public:
             }while(!queue_[prevIndex(index)].isValid() && prevIndex(getActiveStart())!=prevIndex(index)); // this can be Infinite if all elements are invalid
             return element;
         }
+    }
+
+    /// need a -ve comparator
+    /// @brief called when we process a -ve event
+    /// @param element
+    /// @return TriStatus
+    FindStatus negativeFind(T element){
+        //assuming the negative counterpart is already processed by now
+        FindStatus found=NOTFOUND;
+        bool success = false;
+        //checks first
+
+        while(!success){
+            if (isEmpty()){
+                //throw message
+                std::cout << "Queue is empty" << std::endl;
+                return NOTFOUND;
+            }
+            
+            uint32_t marker = marker_.load(std::memory_order_relaxed);
+            uint32_t markerCopy = marker;
+            
+            #ifdef GTEST_FOUND
+                std::cout<<"increamentActiveStart called "<<std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            #endif
+            while (marker_.compare_exchange_weak(
+                    markerCopy, marker,
+                    std::memory_order_release, std::memory_order_relaxed)){
+                    
+                    uint16_t ActiveIndex = ActiveStart(markerCopy);
+                    uint16_t UnProcessedIndex = UnprocessedStart(markerCopy);
+                    uint16_t FreeIndex = FreeStart(markerCopy);
+                    #ifdef GTEST_FOUND
+                        std::cout<<"find success at "<<ActiveIndex<<
+                        " "<<UnProcessedIndex<<" "<<FreeIndex<<std::endl;
+                    #endif
+                    while(ActiveIndex != UnProcessedIndex){
+                        
+                        if(this->negativeCounterPart_(queue_[ActiveIndex].getData(), element)){
+                            found = ACTIVE; //rollback
+                            
+                            break;
+                        }
+                        ActiveIndex = nextIndex(ActiveIndex);
+                    }
+                    while(UnProcessedIndex != FreeIndex && found!=ACTIVE){
+                        
+                        if(this->negativeCounterPart_(queue_[UnProcessedIndex].getData(), element)){
+                            found = UNPROCESSED; //Invalidate The element
+                            
+                            queue_[UnProcessedIndex].invalidate();
+                            break;
+                        }
+                        UnProcessedIndex = nextIndex(UnProcessedIndex);
+                    }
+                    
+                    success = true;
+                    break;
+            }
+        }
+        return found;
+
     }
 
 

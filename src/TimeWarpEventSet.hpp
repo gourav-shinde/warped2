@@ -21,6 +21,7 @@
 #include "LadderQueue.hpp"
 #include "SplayTree.hpp"
 #include "CircularQueue.hpp"
+#include "UnifiedQueue.hpp"
 
 namespace warped {
 
@@ -37,14 +38,18 @@ class TimeWarpEventSet {
 public:
     TimeWarpEventSet() = default;
 
+    //done
     void initialize (const std::vector<std::vector<LogicalProcess*>>& lps,
                      unsigned int num_of_lps,
                      bool is_lp_migration_on,
                      unsigned int num_of_worker_threads);
 
+#ifdef UNIFIED_QUEUE
+#else
     void acquireInputQueueLock (unsigned int lp_id);
 
     void releaseInputQueueLock (unsigned int lp_id);
+#endif
 
     InsertStatus insertEvent (unsigned int lp_id, std::shared_ptr<Event> event);
 
@@ -54,6 +59,7 @@ public:
     unsigned int lowestTimestamp (unsigned int thread_id);
 #endif
 
+    //done
     std::shared_ptr<Event> lastProcessedEvent (unsigned int lp_id);
 
     void rollback (unsigned int lp_id, std::shared_ptr<Event> straggler_event);
@@ -67,16 +73,23 @@ public:
 
     void replenishScheduler (unsigned int lp_id);
 
+    // we do not seem to use this function anywhere
     bool cancelEvent (unsigned int lp_id, std::shared_ptr<Event> cancel_event);
 
+    //standard done
     void printEvent (std::shared_ptr<Event> event);
 
+    //this is done
     unsigned int fossilCollect (unsigned int fossil_collect_time, unsigned int lp_id);
 
 private:
     // Number of lps
     unsigned int num_of_lps_ = 0;
 
+#ifdef UNIFIED_QUEUE
+    // This unifies input_queue and processed_queue
+    std::vector<std::unique_ptr<UnifiedQueue<std::shared_ptr<Event>,compareEvents>>> unified_queue_;
+#else
     // Lock to protect the unprocessed queues
     std::unique_ptr<std::mutex []> input_queue_lock_;
 
@@ -87,7 +100,7 @@ private:
     // Queues to hold the processed events for each lp
     std::vector<std::unique_ptr<std::deque<std::shared_ptr<Event>>>> 
                                                             processed_queue_;
-
+#endif
     // Number of event schedulers
     unsigned int num_of_schedulers_ = 0;
 

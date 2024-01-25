@@ -15,16 +15,19 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
     num_of_lps_         = num_of_lps;
     num_of_schedulers_  = lps.size();
     is_lp_migration_on_ = is_lp_migration_on;
-
+#ifdef UNIFIED_QUEUE
+    for (unsigned int scheduler_id = 0; scheduler_id < lps.size(); scheduler_id++) {
+        for (unsigned int lp_id = 0; lp_id < lps[scheduler_id].size(); lp_id++) {
+            unified_queue_.push_back(make_unique<UnifiedQueue<std::shared_ptr<Event>, compareEvents>>());
+            scheduled_event_pointer_.push_back(nullptr);
+            input_queue_scheduler_map_.push_back(scheduler_id);
+        }
+    }
+    
+#else
     /* Create the input and processed queues and their locks.
        Also create the input queue-scheduler map and scheduled event pointer. */
     input_queue_lock_ = make_unique<std::mutex []>(num_of_lps);
-#ifdef SCHEDULE_QUEUE_SPINLOCKS
-    schedule_queue_lock_ = make_unique<TicketLock []>(num_of_schedulers_);
-#else
-    schedule_queue_lock_ = make_unique<std::mutex []>(num_of_schedulers_);
-#endif
-
     for (unsigned int scheduler_id = 0; scheduler_id < lps.size(); scheduler_id++) {
         for (unsigned int lp_id = 0; lp_id < lps[scheduler_id].size(); lp_id++) {
             input_queue_.push_back(
@@ -34,6 +37,15 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
             input_queue_scheduler_map_.push_back(scheduler_id);
         }
     }
+#endif
+    
+#ifdef SCHEDULE_QUEUE_SPINLOCKS
+    schedule_queue_lock_ = make_unique<TicketLock []>(num_of_schedulers_);
+#else
+    schedule_queue_lock_ = make_unique<std::mutex []>(num_of_schedulers_);
+#endif
+
+    
 
     /* Create the schedule queues */
     for (unsigned int scheduler_id = 0; scheduler_id < num_of_schedulers_; scheduler_id++) {
@@ -55,6 +67,10 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
     }
 }
 
+
+
+#ifdef UNIFIED_QUEUE
+#else
 void TimeWarpEventSet::acquireInputQueueLock (unsigned int lp_id) {
 
     input_queue_lock_[lp_id].lock();
@@ -64,6 +80,7 @@ void TimeWarpEventSet::releaseInputQueueLock (unsigned int lp_id) {
 
     input_queue_lock_[lp_id].unlock();
 }
+#endif
 
 /*
  *  NOTE: caller must always have the input queue lock for the lp with id lp_id
@@ -72,23 +89,34 @@ void TimeWarpEventSet::releaseInputQueueLock (unsigned int lp_id) {
  */
 InsertStatus TimeWarpEventSet::insertEvent (
                     unsigned int lp_id, std::shared_ptr<Event> event) {
+
+#ifdef UNIFIED_QUEUE
+    unified_queue_[lp_id]->insert(event);
+#else
     // Always insert event into input queue
     input_queue_[lp_id]->insert(event);
     unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
+#endif
+    
     if (scheduled_event_pointer_[lp_id] == nullptr) {
         // If no event is currently scheduled. This can only happen if the thread that handles
         // events for lp with id == lp_id has determined that there are no more events left in
         // its input queue
+#ifdef UNIFIED_QUEUE
+#else
         assert(input_queue_[lp_id]->size() == 1);
+#endif
         schedule_queue_lock_[scheduler_id].lock();
         schedule_queue_[scheduler_id]->insert(event);
         schedule_queue_lock_[scheduler_id].unlock();
         scheduled_event_pointer_[lp_id] = event;
         return InsertStatus::StarvedObject;
     }
-
+#ifdef UNIFIED_QUEUE
+    
+#else
     auto smallest_event = *input_queue_[lp_id]->begin();
-    if (smallest_event == scheduled_event_pointer_[lp_id]) {
+     if (smallest_event == scheduled_event_pointer_[lp_id]) {
         return InsertStatus::LpOnly;
     }
 
@@ -110,6 +138,9 @@ InsertStatus TimeWarpEventSet::insertEvent (
     }
     schedule_queue_lock_[scheduler_id].unlock();
     return ret;
+#endif
+    
+   
 }
 
 /*
@@ -169,8 +200,11 @@ unsigned int TimeWarpEventSet::lowestTimestamp (unsigned int thread_id) {
  *  NOTE: caller must have the input queue lock for the lp with id lp_id
  */
 std::shared_ptr<Event> TimeWarpEventSet::lastProcessedEvent (unsigned int lp_id) {
-
+#ifdef UNIFIED_QUEUE
+    return unified_queue_[lp_id]->getPreviousUnprocessedEvent();
+#else
     return ((processed_queue_[lp_id]->size()) ? processed_queue_[lp_id]->back() : nullptr);
+#endif
 }
 
 /*
@@ -181,7 +215,9 @@ void TimeWarpEventSet::rollback (unsigned int lp_id, std::shared_ptr<Event> stra
     // Every event GREATER OR EQUAL to straggler event must remove from the processed queue and
     // reinserted back into input queue.
     // EQUAL will ensure that a negative message will properly be cancelled out.
-
+#ifdef UNIFIED_QUEUE
+    unified_queue_[lp_id]->fixPosition(); //the data for this function is locally asseciable in the queue
+#else
     auto event_riterator = processed_queue_[lp_id]->rbegin();  // Starting with largest event
 
     while (event_riterator != processed_queue_[lp_id]->rend() && (**event_riterator >= *straggler_event)){
@@ -192,11 +228,13 @@ void TimeWarpEventSet::rollback (unsigned int lp_id, std::shared_ptr<Event> stra
         input_queue_[lp_id]->insert(event);
         event_riterator = processed_queue_[lp_id]->rbegin();
     }
+#endif
 }
 
 /*
  *  NOTE: caller must have the input queue lock for the lp with id lp_id
  */
+/// potential performace optimization needed, use call by referance.
 std::unique_ptr<std::vector<std::shared_ptr<Event>>> 
     TimeWarpEventSet::getEventsForCoastForward (
                                 unsigned int lp_id, 
@@ -240,11 +278,24 @@ std::unique_ptr<std::vector<std::shared_ptr<Event>>>
  *  NOTE: This can only be called by the thread that handles events for the lp with id lp_id
  *
  */
+
+//pull out from unprocessed queue and insert into schedule queue
 void TimeWarpEventSet::startScheduling (unsigned int lp_id) {
 
     // Just simply add pointer to next event into the scheduler if input queue is not empty
     // for the given lp, otherwise set to nullptr
     //.. why do we insert it into schedule queue???
+#ifdef UNIFIED_QUEUE
+    if (!unified_queue_[lp_id]->getUnprocessedSign()) {
+        scheduled_event_pointer_[lp_id] = *unified_queue_[lp_id]->dequeue();
+        unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
+        schedule_queue_lock_[scheduler_id].lock();
+        schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
+        schedule_queue_lock_[scheduler_id].unlock();
+    } else {
+        scheduled_event_pointer_[lp_id] = nullptr;
+    }
+#else
     if (!input_queue_[lp_id]->empty()) {
         scheduled_event_pointer_[lp_id] = *input_queue_[lp_id]->begin();
         unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
@@ -254,6 +305,7 @@ void TimeWarpEventSet::startScheduling (unsigned int lp_id) {
     } else {
         scheduled_event_pointer_[lp_id] = nullptr;
     }
+#endif
 }
 
 
@@ -273,6 +325,28 @@ void TimeWarpEventSet::replenishScheduler (unsigned int lp_id) {
     assert(scheduled_event_pointer_[lp_id]);
 
     // Move the just processed event to the processed queue
+#ifdef UNIFIED_QUEUE
+    // Map the lp to the next schedule queue (cyclic order)
+    // This is supposed to balance the load across all the schedule queues
+    // Input queue lock is sufficient to ensure consistency
+    unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
+    // TODO, do we need to support this
+    if (is_lp_migration_on_) {
+        scheduler_id = (scheduler_id + 1) % num_of_schedulers_;
+        input_queue_scheduler_map_[lp_id] = scheduler_id;
+    }
+
+    // Update scheduler with new event for the lp the previous event was executed for
+    // NOTE: A pointer to the scheduled event will remain in the input queue
+    if (!input_queue_[lp_id]->empty()) {
+        scheduled_event_pointer_[lp_id] = *unified_queue_[lp_id]->dequeue();
+        schedule_queue_lock_[scheduler_id].lock();
+        schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
+        schedule_queue_lock_[scheduler_id].unlock();
+    } else {
+        scheduled_event_pointer_[lp_id] = nullptr;
+    }
+#else
     auto num_erased = input_queue_[lp_id]->erase(scheduled_event_pointer_[lp_id]);
     assert(num_erased == 1);
     unused(num_erased);
@@ -298,13 +372,26 @@ void TimeWarpEventSet::replenishScheduler (unsigned int lp_id) {
     } else {
         scheduled_event_pointer_[lp_id] = nullptr;
     }
+#endif
 }
 
 
-//we dont do this anymore
-//check notes
+//for this function, we invalid the event in the unified queue
 bool TimeWarpEventSet::cancelEvent (unsigned int lp_id, std::shared_ptr<Event> cancel_event) {
 
+#ifdef UNIFIED_QUEUE
+    //cancel negative event
+    UnifiedQueue::FindStatus res = unified_queue_[lp_id]->negativeFind(cancel_event); // this invalidates the event in unified queue
+    if(res == UnifiedQueue::FindStatus::UNPROCESSED){
+        return true;
+    else if(res == UnifiedQueue::FindStatus::ACTIVE){
+        std::cout<<"ERROR: canceling an -ve event in active zone rollback condition, shouldnt occure\n"
+        return false;
+    }
+    else{
+        return false;
+    }
+#else
     bool found = false;
     auto neg_iterator = input_queue_[lp_id]->find(cancel_event);
     assert(neg_iterator != input_queue_[lp_id]->end());
@@ -318,6 +405,7 @@ bool TimeWarpEventSet::cancelEvent (unsigned int lp_id, std::shared_ptr<Event> c
     }
 
     return found;
+#endif
 }
 
 // For debugging
@@ -335,7 +423,27 @@ void TimeWarpEventSet::printEvent(std::shared_ptr<Event> event) {
 unsigned int TimeWarpEventSet::fossilCollect (unsigned int fossil_collect_time, unsigned int lp_id) {
 
     unsigned int count = 0;
+#ifdef UNIFIED_QUEUE
+    if(unified_queue_[lp_id]->getUnprocessedSign()){
+        return count;
+    }
+    //this is for termination of the warped kernel
+    if (fossil_collect_time == (unsigned int)-1) {
+        return abs(unified_queue_[lp_id]->getActiveStart()-unified_queue_[lp_id]->getUnprocessedStart());
+    }
 
+    //normal, do fossile collection until events smaller than equal to fossil-collection-time
+    // discuss this with sounak,
+    //going with this route as this is also thread safe atomic operation  
+    uint64_t activeStart = unified_queue_[lp_id]->getActiveStart();
+    while(unified_queue_[lp_id].getValue(activeStart)->timestamp() <= fossil_collect_time && 
+        unified_queue_[lp_id].nextIndex(activeStart) != unified_queue_[lp_id].nextIndex((unified_queue_[lp_id]->getUnprocessedStart()))){
+        activeStart++;
+        count++;
+    }
+    unified_queue_[lp_id]->setActiveStart(activeStart);
+
+#else
     if (processed_queue_[lp_id]->empty()) {
         return count;
     }
@@ -353,6 +461,8 @@ unsigned int TimeWarpEventSet::fossilCollect (unsigned int fossil_collect_time, 
         event_iterator = processed_queue_[lp_id]->begin();
         count++;
     }
+
+#endif
 
     return count;
 }
