@@ -255,7 +255,15 @@ std::unique_ptr<std::vector<std::shared_ptr<Event>>>
 
     // Create empty vector
     auto events = make_unique<std::vector<std::shared_ptr<Event>>>();
-
+#ifdef UNIFIED_QUEUE
+    uint64_t unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
+    while( unProcessedStart != unified_queue_[lp_id].getFreeStart()){
+        if(unified_queue_[lp_id].getValue().isValid()){}
+            events->push_back(unified_queue_[lp_id].getValue(unProcessedStart));
+        }
+        unProcessedStart++;
+    }
+#else
     auto event_riterator = processed_queue_[lp_id]->rbegin();  // Starting with largest event
 
     while ((event_riterator != processed_queue_[lp_id]->rend()) && (**event_riterator > *restored_state_event)) {
@@ -266,7 +274,7 @@ std::unique_ptr<std::vector<std::shared_ptr<Event>>>
         events->push_back(*event_riterator);
         event_riterator++;
     }
-
+#endif
     return events;
 }
 
