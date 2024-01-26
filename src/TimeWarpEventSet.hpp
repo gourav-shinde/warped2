@@ -88,7 +88,7 @@ private:
 
 #ifdef UNIFIED_QUEUE
     // This unifies input_queue and processed_queue
-    std::vector<std::unique_ptr<UnifiedQueue<std::shared_ptr<Event>,compareEvents>>> unified_queue_;
+    std::vector<std::unique_ptr<UnifiedQueue<std::shared_ptr<Event>,compareEvents, compareNegativeEvent>>> unified_queue_;
 #else
     // Lock to protect the unprocessed queues
     std::unique_ptr<std::mutex []> input_queue_lock_;

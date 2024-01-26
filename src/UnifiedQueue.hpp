@@ -3,7 +3,7 @@
 #include <vector>
 #include <cmath>
 #include <stdexcept>
-
+#include "utility/warnings.hpp"
 
 #include <chrono>
 #include <thread>
@@ -421,7 +421,9 @@ public:
     }
 
     T getValue(uint32_t index){
-        return queue_[index].getData();
+        if(queue_[index].isValid())
+            return queue_[index].getData();
+        return nullptr;
     }
 
     /// @brief fossil collect dummy function
@@ -549,7 +551,7 @@ public:
             uint16_t swap_index_r=prevIndex(UnprocessedStart(marker));
             std::cout<<"swap_index_r before"<<swap_index_r<<std::endl;
             swap_index_l=swap_index_r;
-            for(swap_index_l;;swap_index_l=prevIndex(swap_index_l)){
+            for(;;swap_index_l=prevIndex(swap_index_l)){
                 if(!queue_[swap_index_r].isValid() || compare_(queue_[swap_index_r].getData(),queue_[prevIndex(swap_index_l)].getData())){
                     continue;
                 }

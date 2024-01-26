@@ -400,9 +400,14 @@ void TimeWarpEventDispatcher::sendLocalEvent(std::shared_ptr<Event> event) {
     unsigned int receiver_lp_id = local_lp_id_by_name_[event->receiverName()];
 
     // NOTE: Event is assumed to be less than the maximum simulation time.
+
+#ifdef UNIFIED_QUEUE
+    auto status = event_set_->insertEvent(receiver_lp_id, event);
+#else
     event_set_->acquireInputQueueLock(receiver_lp_id);
     auto status = event_set_->insertEvent(receiver_lp_id, event);
     event_set_->releaseInputQueueLock(receiver_lp_id);
+#endif
 
     // Make sure to track sends if we are in the middle of a GVT calculation.
     gvt_manager_->reportThreadSendMin(event->timestamp(), thread_id);
