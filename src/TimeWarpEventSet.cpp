@@ -220,6 +220,7 @@ void TimeWarpEventSet::rollback (unsigned int lp_id, std::shared_ptr<Event> stra
     // EQUAL will ensure that a negative message will properly be cancelled out.
 #ifdef UNIFIED_QUEUE
     unused(straggler_event);
+    unified_queue_[lp_id]->debug();
     unified_queue_[lp_id]->fixPosition(); //the data for this function is locally asseciable in the queue
 #else
     auto event_riterator = processed_queue_[lp_id]->rbegin();  // Starting with largest event
@@ -263,11 +264,13 @@ std::unique_ptr<std::vector<std::shared_ptr<Event>>>
     unused(restored_state_event);
     uint64_t unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
     while( unProcessedStart != unified_queue_[lp_id]->getFreeStart()){
+        unified_queue_[lp_id]->debug();
+        std::cout<<"unProcessedStart: "<<unProcessedStart<<"\n";
         auto event = unified_queue_[lp_id]->getValue(unProcessedStart);
         if(event!=nullptr){
             events->push_back(event);
         }
-        unProcessedStart++;
+        unProcessedStart=unified_queue_[lp_id]->nextIndex(unProcessedStart);
     }
 #else
     auto event_riterator = processed_queue_[lp_id]->rbegin();  // Starting with largest event
