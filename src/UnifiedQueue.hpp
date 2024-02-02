@@ -340,9 +340,10 @@ public:
             //checks first
             if (isFull()){
                 //throw message
-                // std::cout << "Queue is full" << std::endl;
-                std::__throw_bad_exception();
-                return false;
+                this->debug();
+                std::cout << "Queue is full" << std::endl;
+                // std::__throw_bad_exception();
+                abort();
             }
 
             uint32_t marker = marker_.load(std::memory_order_relaxed);
@@ -353,7 +354,7 @@ public:
             }
             setUnprocessedSignMarker(marker, 0);
             setFreeStartMarker(marker, nextIndex(FreeStart(marker)));
-
+            
             //run follwing code when running gtest, this adds a delay so threads collide making 
             //compare and swap fail
             #ifdef GTEST_FOUND
@@ -392,7 +393,8 @@ public:
 
     /// @brief
     /// @return returns the element at the front of the UnprocessStart
-    T dequeue(){
+    T dequeue(){ 
+        // std::cout<<"dequeue called "<<std::endl;
         bool success = false;
         while(!success){
             //checks first
@@ -441,9 +443,11 @@ public:
     }
 
     T getValue(uint32_t index){
-        if(queue_[index].isValid())
-            return queue_[index].getData();
-        return nullptr;
+        return queue_[index].getData();
+    }
+
+    bool isDataValid(uint32_t index){
+        return queue_[index].isValid();
     }
 
     /// @brief fossil collect dummy function
@@ -551,38 +555,52 @@ public:
 
     }
 
-    /// @brief This fixes the position of the events
+
+   /// @brief This fixes the position of the events
     /// No Markers change
     void fixPosition(){
         if(getActiveStart() == getUnprocessedStart()){//active zone is empty
             return;
         }
         bool success = false;
-        uint16_t swap_index_l; // we remember this variable
-        //checks first
 
         while(!success){
             //you dont need checks becoz this is called for rollback purposes
             uint32_t marker = marker_.load(std::memory_order_relaxed);
             uint32_t markerCopy = marker;
+            uint32_t activeStart = ActiveStart(marker);
             
             #ifdef GTEST_FOUND
                 std::cout<<"Fixposition called "<<std::endl;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             #endif
             //find index to swap with
+            
+            //get previous valid event from unprocessed start
             uint16_t swap_index_r=prevIndex(UnprocessedStart(marker));
+
+            if(swap_index_r == activeStart){
+                //throw message
+                return;
+            }
+            
             std::cout<<"swap_index_r before"<<swap_index_r<<std::endl;
-            swap_index_l=prevIndex(swap_index_r);
-            for(;swap_index_l!=getActiveStart();swap_index_l=prevIndex(swap_index_l)){
-                if(!queue_[swap_index_r].isValid() || compare_(queue_[swap_index_r].getData(),queue_[swap_index_l].getData())){
-                    continue;
-                }
-                break;
+            uint16_t swap_index_l=swap_index_r;
+
+            while(swap_index_l != activeStart && compare_(queue_[swap_index_r].getData(),queue_[prevIndex(swap_index_l)].getData())){
+                swap_index_l=prevIndex(swap_index_l);
+            }
+            
+            
+            if(swap_index_l == swap_index_r)
+            {
+                std::cout<<"swap_index_l "<<swap_index_l<<" swap_index_r "<<swap_index_r<<std::endl;
+                return;
             }
             
             setUnprocessedStartMarker(marker,swap_index_l);
             std::cout<<"swap_index_l "<<swap_index_l<<" swap_index_r "<<swap_index_r<<std::endl;
+
             while (marker_.compare_exchange_weak(
                     markerCopy, marker,
                     std::memory_order_release, std::memory_order_relaxed)){
@@ -598,6 +616,7 @@ public:
         }
 
     }
+
 
     /// @brief returns previous valid unproceesed event
     /// @return 
@@ -677,6 +696,22 @@ public:
         }
         return found;
 
+    }
+
+    //invalids the data at unprocessedStart
+    bool invalidNegative(){
+        uint32_t marker = marker_.load(std::memory_order_relaxed);
+        if(!UnProcessedSign(marker)){
+            queue_[UnprocessedStart(marker)].invalidate();
+            return true;
+        }
+        std::cout << "unprocessed Queue is empty" << std::endl;
+        return false;
+    }
+
+    //invalids the data at index
+    void invalidateIndex(uint32_t index){
+        queue_[index].invalidate();
     }
 
 

@@ -82,6 +82,12 @@ public:
     //this is done
     unsigned int fossilCollect (unsigned int fossil_collect_time, unsigned int lp_id);
 
+
+#ifdef UNIFIED_QUEUE
+    void markUnprocessed(unsigned int lp_id, std::shared_ptr<Event> event);
+#else
+#endif
+
 private:
     // Number of lps
     unsigned int num_of_lps_ = 0;

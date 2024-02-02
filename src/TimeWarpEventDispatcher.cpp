@@ -236,6 +236,7 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
             // Check to see if event is NEGATIVE and cancel
             if (event->event_type_ == EventType::NEGATIVE) {
 #ifdef UNIFIED_QUEUE
+                std::cout<<"cancelling -ve event\n";
                 bool found = event_set_->cancelEvent(current_lp_id, event);
 #else
                 event_set_->acquireInputQueueLock(current_lp_id);
@@ -469,6 +470,8 @@ void TimeWarpEventDispatcher::rollback(std::shared_ptr<Event> straggler_event) {
     assert(straggler_event->timestamp() >= gvt_manager_->getGVT());
 
 #ifdef UNIFIED_QUEUE
+    if(straggler_event->event_type_ == EventType::NEGATIVE)
+        std::cout<<"Rolling back -ve event\n";
     event_set_->rollback(local_lp_id, straggler_event);
 #else
     // Move processed events larger  than straggler back to input queue.
@@ -484,6 +487,9 @@ void TimeWarpEventDispatcher::rollback(std::shared_ptr<Event> straggler_event) {
     assert(*restored_state_event < *straggler_event);
 
     //mark event after restore_state_event as Unprocessed
+#ifdef UNIFIED_QUEUE
+    // event_set_->markUnprocessed(local_lp_id, restored_state_event);
+#endif
     // then do coast forwarding until u reach staggler event
 
     // Send anti-messages
@@ -505,6 +511,20 @@ void TimeWarpEventDispatcher::coastForward(std::shared_ptr<Event> straggler_even
     auto events = event_set_->getEventsForCoastForward(current_lp_id, straggler_event,
         restored_state_event);
 
+#ifdef UNIFIED_QUEUE
+    
+     // NOTE: events are in order from LARGEST to SMALLEST, so reprocess backwards
+    // std::cout<<"Coast Forwarding Events: "<<events->size()<<std::endl;
+    for (auto itr: *events) {
+        assert(*itr <= *straggler_event);
+        // This just updates state, ignore new events
+        // std::cout << "Coast Forwarding Event: " << itr->timestamp() << std::endl;
+        lp->receiveEvent(*itr);
+        tw_stats_->upCount(COAST_FORWARDED_EVENTS, thread_id);
+        // NOTE: Do not send any new events
+        // NOTE: All coast forward events are already in processed queue, they were never removed.
+    }
+#else
     // NOTE: events are in order from LARGEST to SMALLEST, so reprocess backwards
     for (auto event_riterator = events->rbegin();
                     event_riterator != events->rend(); event_riterator++) {
@@ -519,6 +539,7 @@ void TimeWarpEventDispatcher::coastForward(std::shared_ptr<Event> straggler_even
         // NOTE: Do not send any new events
         // NOTE: All coast forward events are already in processed queue, they were never removed.
     }
+#endif
 }
 
 void
