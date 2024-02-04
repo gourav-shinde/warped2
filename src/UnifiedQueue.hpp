@@ -58,6 +58,9 @@ private:
     //create variable for shifts too
 
     //define masks
+    std::atomic<uint32_t> enqueue_counter_ = 0;
+    std::atomic<uint32_t> dequeue_counter_ = 0;
+    std::atomic<uint32_t> rollback_counter_ = 0;
     const uint32_t freeStartMask_ = 0x000003FF;
     const uint32_t freeSignMask_ = 0x00000400;
     const uint32_t unprocessedStartMask_ = 0x001FF800;
@@ -335,6 +338,7 @@ public:
 
     // we are not handling out of order elements in this queue.
     bool enqueue(T element){
+        enqueue_counter_++;
         bool success = false;
         while(!success){
             //checks first
@@ -343,6 +347,9 @@ public:
                 this->debug();
                 std::cout << "Queue is full" << std::endl;
                 // std::__throw_bad_exception();
+                std::cout<<"Enqueue Counter: "<<enqueue_counter_<<std::endl;
+                std::cout<<"Dequeue Counter: "<<dequeue_counter_<<std::endl;
+                std::cout<<"Rollback Counter: "<<rollback_counter_<<std::endl;
                 abort();
             }
 
@@ -386,7 +393,7 @@ public:
         }
            
         
-
+        // std::this_thread::sleep_for(std::chrono::milliseconds(10));
         return true;
     }
 
@@ -394,6 +401,7 @@ public:
     /// @brief
     /// @return returns the element at the front of the UnprocessStart
     T dequeue(){ 
+        dequeue_counter_++;
         // std::cout<<"dequeue called "<<std::endl;
         bool success = false;
         while(!success){
@@ -556,65 +564,35 @@ public:
     }
 
 
-   /// @brief This fixes the position of the events
+    /// @brief This fixes the position of the events
     /// No Markers change
-    void fixPosition(){
-        if(getActiveStart() == getUnprocessedStart()){//active zone is empty
+    void fixPosition() {
+        if (getActiveStart() == getUnprocessedStart()) {//active zone is empty
             return;
         }
-        bool success = false;
 
-        while(!success){
-            //you dont need checks becoz this is called for rollback purposes
-            uint32_t marker = marker_.load(std::memory_order_relaxed);
-            uint32_t markerCopy = marker;
-            uint32_t activeStart = ActiveStart(marker);
-            
-            #ifdef GTEST_FOUND
-                std::cout<<"Fixposition called "<<std::endl;
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            #endif
-            //find index to swap with
-            
-            //get previous valid event from unprocessed start
-            uint16_t swap_index_r=prevIndex(UnprocessedStart(marker));
+        uint32_t marker = marker_.load(std::memory_order_relaxed);
+        uint32_t activeStart = ActiveStart(marker);
 
-            if(swap_index_r == activeStart){
-                //throw message
-                return;
-            }
-            
-            std::cout<<"swap_index_r before"<<swap_index_r<<std::endl;
-            uint16_t swap_index_l=swap_index_r;
+#ifdef GTEST_FOUND
+        std::cout << "Fixposition called " << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+#endif
+        //find index to swap with
 
-            while(swap_index_l != activeStart && compare_(queue_[swap_index_r].getData(),queue_[prevIndex(swap_index_l)].getData())){
-                swap_index_l=prevIndex(swap_index_l);
-            }
-            
-            
-            if(swap_index_l == swap_index_r)
-            {
-                std::cout<<"swap_index_l "<<swap_index_l<<" swap_index_r "<<swap_index_r<<std::endl;
-                return;
-            }
-            
-            setUnprocessedStartMarker(marker,swap_index_l);
-            std::cout<<"swap_index_l "<<swap_index_l<<" swap_index_r "<<swap_index_r<<std::endl;
+        //get previous valid event from unprocessed start
+        uint16_t swap_index_r = prevIndex(UnprocessedStart(marker));
 
-            while (marker_.compare_exchange_weak(
-                    markerCopy, marker,
-                    std::memory_order_release, std::memory_order_relaxed)){
-                    #ifdef GTEST_FOUND
-                        std::cout<<"sort success at "<<std::endl;
-                    #endif
-                    std::swap(queue_[swap_index_l],queue_[swap_index_r]);
-                    success=true;
-                    break;
-            }
-
+        while (swap_index_r != activeStart && compare_(queue_[swap_index_r].getData(), queue_[prevIndex(swap_index_r)].getData())) {
+            std::swap(queue_[prevIndex(swap_index_r)], queue_[swap_index_r]);
             
+            swap_index_r = prevIndex(swap_index_r);
+
+            setUnprocessedSign(false);
+            setUnprocessedStart(swap_index_r);
         }
 
+        
     }
 
 

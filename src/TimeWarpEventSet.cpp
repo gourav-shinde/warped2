@@ -220,20 +220,21 @@ void TimeWarpEventSet::rollback (unsigned int lp_id, std::shared_ptr<Event> stra
     // EQUAL will ensure that a negative message will properly be cancelled out.
 #ifdef UNIFIED_QUEUE
     unused(straggler_event);
-    std::cout<<"fixposition called\n";
+    // std::cout<<"fixposition called\n";
     // std::cout<<"LPID: "<<lp_id<<"\n";
     // unified_queue_[lp_id]->debug();
     unified_queue_[lp_id]->fixPosition(); //the data for this function is locally asseciable in the queue
     
     //invalidate the -ve event in the unified queue
     if(straggler_event->event_type_ == EventType::NEGATIVE){
-        std::cout<<"-ve event\n";
+        // std::cout<<"-ve event\n";
+        // try 
         compareNegativeEvent compare;
         if(compare(
             unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart())),
             unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()) ))
         {
-            std::cout<<"-ve event correct order\n";
+            // std::cout<<"-ve event correct order\n";
             unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart()));
             unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getUnprocessedStart());
         }
@@ -261,7 +262,7 @@ void TimeWarpEventSet::rollback (unsigned int lp_id, std::shared_ptr<Event> stra
 /*
  *  NOTE: caller must have the input queue lock for the lp with id lp_id
  */
-/// potential performace optimization needed, use call by referance.
+/// this also changes the unProcessedmarker to staggler event
 std::unique_ptr<std::vector<std::shared_ptr<Event>>> 
     TimeWarpEventSet::getEventsForCoastForward (
                                 unsigned int lp_id, 
@@ -284,23 +285,20 @@ std::unique_ptr<std::vector<std::shared_ptr<Event>>>
     auto events = make_unique<std::vector<std::shared_ptr<Event>>>();
 #ifdef UNIFIED_QUEUE
     unused(restored_state_event);
-    uint64_t unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
-    while( unProcessedStart != unified_queue_[lp_id]->getFreeStart()){
+    uint32_t unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
+    uint32_t freeStart = unified_queue_[lp_id]->getFreeStart();
+    compareEvents compare;
+    while(compare(unified_queue_[lp_id]->getValue(unProcessedStart), straggler_event) && 
+            unProcessedStart != freeStart){
         // unified_queue_[lp_id]->debug();
         // std::cout<<"unProcessedStart: "<<unProcessedStart<<"\n";
-        auto event = unified_queue_[lp_id]->getValue(unProcessedStart);
-        if(event!=nullptr && *event<=*straggler_event){
-            std::cout<<event->timestamp()<<" "<<straggler_event->timestamp()<<"\n";
-            events->push_back(event);
-            unProcessedStart=unified_queue_[lp_id]->nextIndex(unProcessedStart);
-            if(*event == *straggler_event){
-                break;
-            }
+        if(unified_queue_[lp_id]->isDataValid(unProcessedStart)){
+            events->push_back(unified_queue_[lp_id]->getValue(unProcessedStart));
         }
-        else{
-            break;
-        }
+        unProcessedStart = unified_queue_[lp_id]->nextIndex(unProcessedStart);
     }
+    //sets unprocessed Start back to staggler event
+    unified_queue_[lp_id]->setUnprocessedStart(unProcessedStart);
 #else
     auto event_riterator = processed_queue_[lp_id]->rbegin();  // Starting with largest event
 
@@ -313,7 +311,7 @@ std::unique_ptr<std::vector<std::shared_ptr<Event>>>
         event_riterator++;
     }
 #endif
-    std::cout<<"events for coast forward "<<events->size()<<"\n";
+    // std::cout<<"events for coast forward "<<events->size()<<"\n";
     return events;
 }
 
@@ -362,7 +360,7 @@ void TimeWarpEventSet::markUnprocessed(unsigned int lp_id, std::shared_ptr<Event
     // std::cout<<restored_event->timestamp()<<"\n";
     // std::cout<<unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart())->timestamp()<<"\n";
     auto unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
-    std::cout<<"unProcessedStart changed from "<<unProcessedStart<<"\n";
+    // std::cout<<"unProcessedStart changed from "<<unProcessedStart<<"\n";
     while(unProcessedStart != unified_queue_[lp_id]->getActiveStart()){
         if (unified_queue_[lp_id]->getValue(unProcessedStart)==nullptr){
             unProcessedStart = unified_queue_[lp_id]->prevIndex(unProcessedStart);
@@ -376,7 +374,7 @@ void TimeWarpEventSet::markUnprocessed(unsigned int lp_id, std::shared_ptr<Event
             break;
         }
     }
-    std::cout<<"unProcessedStart changed to "<<unProcessedStart<<"\n";
+    // std::cout<<"unProcessedStart changed to "<<unProcessedStart<<"\n";
     unified_queue_[lp_id]->setUnprocessedStart(unProcessedStart);
     // std::cout<<"activeStart: "<<unified_queue_[lp_id]->getActiveStart()<<"\n";
 }
@@ -494,7 +492,7 @@ void TimeWarpEventSet::printEvent(std::shared_ptr<Event> event) {
 
 // .. this gives the time stamp until which we need to increament the activeStart
 unsigned int TimeWarpEventSet::fossilCollect (unsigned int fossil_collect_time, unsigned int lp_id) {
-    std::cout<<"fossilCollect called\n";
+    // std::cout<<"fossilCollect called\n";
     unsigned int count = 0;
 #ifdef UNIFIED_QUEUE
     if(unified_queue_[lp_id]->getUnprocessedSign()){

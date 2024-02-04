@@ -488,7 +488,7 @@ void TimeWarpEventDispatcher::rollback(std::shared_ptr<Event> straggler_event) {
 
     //mark event after restore_state_event as Unprocessed
 #ifdef UNIFIED_QUEUE
-    // event_set_->markUnprocessed(local_lp_id, restored_state_event);
+    event_set_->markUnprocessed(local_lp_id, restored_state_event);
 #endif
     // then do coast forwarding until u reach staggler event
 
