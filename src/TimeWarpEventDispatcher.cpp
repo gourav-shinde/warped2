@@ -236,8 +236,9 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
             // Check to see if event is NEGATIVE and cancel
             if (event->event_type_ == EventType::NEGATIVE) {
 #ifdef UNIFIED_QUEUE
-                std::cout<<"cancelling -ve event\n";
-                bool found = event_set_->cancelEvent(current_lp_id, event);
+                // std::cout<<"cancelling -ve event\n";
+                bool found = true; //becoz we already canceled the event in rollback call
+                // bool found = event_set_->cancelEvent(current_lp_id, event);
 #else
                 event_set_->acquireInputQueueLock(current_lp_id);
                 bool found = event_set_->cancelEvent(current_lp_id, event);
@@ -470,8 +471,8 @@ void TimeWarpEventDispatcher::rollback(std::shared_ptr<Event> straggler_event) {
     assert(straggler_event->timestamp() >= gvt_manager_->getGVT());
 
 #ifdef UNIFIED_QUEUE
-    if(straggler_event->event_type_ == EventType::NEGATIVE)
-        std::cout<<"Rolling back -ve event\n";
+    // if(straggler_event->event_type_ == EventType::NEGATIVE)
+    //     std::cout<<"Rolling back -ve event\n";
     event_set_->rollback(local_lp_id, straggler_event);
 #else
     // Move processed events larger  than straggler back to input queue.

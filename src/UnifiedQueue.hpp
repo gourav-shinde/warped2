@@ -61,6 +61,7 @@ private:
     std::atomic<uint32_t> enqueue_counter_ = 0;
     std::atomic<uint32_t> dequeue_counter_ = 0;
     std::atomic<uint32_t> rollback_counter_ = 0;
+    std::atomic<uint32_t> rollback_function_counter_ = 0;
     const uint32_t freeStartMask_ = 0x000003FF;
     const uint32_t freeSignMask_ = 0x00000400;
     const uint32_t unprocessedStartMask_ = 0x001FF800;
@@ -350,6 +351,7 @@ public:
                 std::cout<<"Enqueue Counter: "<<enqueue_counter_<<std::endl;
                 std::cout<<"Dequeue Counter: "<<dequeue_counter_<<std::endl;
                 std::cout<<"Rollback Counter: "<<rollback_counter_<<std::endl;
+                std::cout<<"Rollback Function Counter: "<<rollback_function_counter_<<std::endl;
                 abort();
             }
 
@@ -401,7 +403,7 @@ public:
     /// @brief
     /// @return returns the element at the front of the UnprocessStart
     T dequeue(){ 
-        dequeue_counter_++;
+        
         // std::cout<<"dequeue called "<<std::endl;
         bool success = false;
         while(!success){
@@ -440,6 +442,7 @@ public:
                     #endif
                     if(queue_[UnprocessedStart(markerCopy)].isValid()){//this will make it so the function retrives next element if invalid element is found
                         success = true;
+                        dequeue_counter_++;
                     }
             }
             if(success)
@@ -567,6 +570,7 @@ public:
     /// @brief This fixes the position of the events
     /// No Markers change
     void fixPosition() {
+        rollback_function_counter_++;
         if (getActiveStart() == getUnprocessedStart()) {//active zone is empty
             return;
         }
@@ -587,7 +591,7 @@ public:
             std::swap(queue_[prevIndex(swap_index_r)], queue_[swap_index_r]);
             
             swap_index_r = prevIndex(swap_index_r);
-
+            rollback_counter_++;
             setUnprocessedSign(false);
             setUnprocessedStart(swap_index_r);
         }
