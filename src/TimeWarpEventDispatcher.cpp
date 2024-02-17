@@ -91,7 +91,8 @@ void TimeWarpEventDispatcher::startSimulation(const std::vector<std::vector<Logi
     unsigned int gvt = 0;
     auto sim_start = std::chrono::steady_clock::now();
 
-    // Master thread main loop
+    // Master thread main loop 
+    // new: compute GVT thread this while loop is the main loop for the master thread
     while (!termination_manager_->terminationStatus()) {
 
         comm_manager_->handleMessages();
@@ -101,7 +102,7 @@ void TimeWarpEventDispatcher::startSimulation(const std::vector<std::vector<Logi
             termination_manager_->sendTerminationToken(State::PASSIVE, comm_manager_->getID(), 0);
         }
 
-        gvt_manager_->checkProgressGVT();
+        gvt_manager_->checkProgressGVT(); // this calls the progressGVT
 
         if (gvt_manager_->gvtUpdated()) {
             gvt = gvt_manager_->getGVT();

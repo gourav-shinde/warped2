@@ -128,6 +128,7 @@ private:
 #else
     std::vector<std::unique_ptr<std::multiset<std::shared_ptr<Event>, 
                                             compareEvents>>> schedule_queue_;
+    // modify it so compareEvents only compares timestamps
 #endif
 
     // Map unprocessed queue to a schedule queue
