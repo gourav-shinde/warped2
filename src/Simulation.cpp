@@ -43,6 +43,7 @@ void Simulation::simulate(const std::vector<LogicalProcess*>& lps) {
     comm_manager->waitForAllProcesses();
 
     unsigned int num_schedulers = num_partitions;
+
     auto local_partitioner = config_.makeLocalPartitioner(comm_manager->getID(), num_schedulers);
     auto local_partitions =
         local_partitioner->partition(partitioned_lps[comm_manager->getID()], num_schedulers);
@@ -60,6 +61,7 @@ void Simulation::simulate(const std::vector<LogicalProcess*>& lps,
     auto comm_manager = config_.makeCommunicationManager();
 
     unsigned int num_partitions = comm_manager->initialize();
+    
     auto partitioned_lps =
         config_.makePartitioner(std::move(partitioner))->partition(lps, num_partitions);
     comm_manager->initializeLPMap(partitioned_lps);
@@ -67,6 +69,7 @@ void Simulation::simulate(const std::vector<LogicalProcess*>& lps,
     comm_manager->waitForAllProcesses();
 
     unsigned int num_schedulers = num_partitions;
+    
     auto local_partitioner = config_.makeLocalPartitioner(comm_manager->getID(), num_schedulers);
     auto local_partitions =
         local_partitioner->partition(partitioned_lps[comm_manager->getID()], num_schedulers);

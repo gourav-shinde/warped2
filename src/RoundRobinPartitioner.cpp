@@ -4,13 +4,14 @@
 #include <iostream>
 
 #include "LogicalProcess.hpp"
+#include <cassert>
 
 namespace warped {
 
 std::vector<std::vector<LogicalProcess*>> RoundRobinPartitioner::partition(
                                              const std::vector<LogicalProcess*>& lps,
                                              const unsigned int num_partitions) const {
-
+    assert(num_partitions > 0);
     std::vector<std::vector<LogicalProcess*>> partitions(num_partitions);
 
     if ((block_size_ == 0) || block_size_ > lps.size()/num_partitions) {
