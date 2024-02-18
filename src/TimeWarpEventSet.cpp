@@ -15,8 +15,6 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
     num_of_lps_         = num_of_lps;
     num_of_schedulers_  = lps.size();
     is_lp_migration_on_ = is_lp_migration_on;
-    std::cout<<"num_of_lps: "<<num_of_lps<<"\n";
-    std::cout<<"num_of_schedulers: "<<num_of_schedulers_<<"\n";
 #ifdef UNIFIED_QUEUE
     for (unsigned int scheduler_id = 0; scheduler_id < lps.size(); scheduler_id++) {
         for (unsigned int lp_id = 0; lp_id < lps[scheduler_id].size(); lp_id++) {
