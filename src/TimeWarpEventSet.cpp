@@ -42,7 +42,6 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
 #ifdef SCHEDULE_QUEUE_SPINLOCKS
     schedule_queue_lock_ = make_unique<TicketLock []>(num_of_schedulers_);
 #else
-    schedule_queue_lock_ = make_unique<std::mutex []>(num_of_schedulers_);
 #endif
 
     
