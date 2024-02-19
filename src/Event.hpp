@@ -145,6 +145,15 @@ public:
 
 };
 
+struct relaxedCompareEvents {
+public:
+    bool operator() (const std::shared_ptr<Event>& first,
+                     const std::shared_ptr<Event>& second) const {
+        return  (first->timestamp() < second->timestamp()) ;
+    }
+
+};
+
 struct compareNegativeEvent {
 public:
     bool operator() (const std::shared_ptr<Event>& first,
