@@ -509,6 +509,7 @@ unsigned int TimeWarpEventSet::fossilCollect (unsigned int fossil_collect_time, 
     uint64_t activeStart = unified_queue_[lp_id]->getActiveStart();
     while(unified_queue_[lp_id]->getValue(activeStart)->timestamp() <= fossil_collect_time && 
         unified_queue_[lp_id]->nextIndex(activeStart) != unified_queue_[lp_id]->nextIndex((unified_queue_[lp_id]->getUnprocessedStart()))){
+        unified_queue_[lp_id]->getValue(activeStart).reset();
         activeStart++;
         count++;
     }
