@@ -127,7 +127,7 @@ private:
     std::vector<std::unique_ptr<CircularQueue>> schedule_queue_;
 #else
     std::vector<std::unique_ptr<std::multiset<std::shared_ptr<Event>, 
-                                            compareEvents>>> schedule_queue_;
+                                            relaxedCompareEvents>>> schedule_queue_;
     // modify it so compareEvents only compares timestamps
 #endif
 
