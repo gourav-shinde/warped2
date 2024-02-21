@@ -57,7 +57,7 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
         schedule_queue_.push_back(make_unique<CircularQueue>( lps[scheduler_id].size() ));
 #else
         schedule_queue_.push_back(
-                make_unique<std::multiset<std::shared_ptr<Event>, compareEvents>>());
+                make_unique<std::multiset<std::shared_ptr<Event>, relaxedCompareEvents>>());
 #endif
     }
 
