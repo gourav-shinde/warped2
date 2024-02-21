@@ -115,7 +115,6 @@ private:
 #ifdef SCHEDULE_QUEUE_SPINLOCKS
     std::unique_ptr<TicketLock []> schedule_queue_lock_;
 #else
-    std::unique_ptr<std::mutex []> schedule_queue_lock_;
 #endif
 
     // Queues to hold the scheduled events

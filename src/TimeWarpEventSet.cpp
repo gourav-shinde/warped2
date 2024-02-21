@@ -42,7 +42,6 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
 #ifdef SCHEDULE_QUEUE_SPINLOCKS
     schedule_queue_lock_ = make_unique<TicketLock []>(num_of_schedulers_);
 #else
-    schedule_queue_lock_ = make_unique<std::mutex []>(num_of_schedulers_);
 #endif
 
     
@@ -107,9 +106,9 @@ InsertStatus TimeWarpEventSet::insertEvent (
 #else
         assert(input_queue_[lp_id]->size() == 1);
 #endif
-        schedule_queue_lock_[scheduler_id].lock();
+        
         schedule_queue_[scheduler_id]->insert(event);
-        schedule_queue_lock_[scheduler_id].unlock();
+        
         scheduled_event_pointer_[lp_id] = event;
         return InsertStatus::StarvedObject;
     }
@@ -153,7 +152,7 @@ std::shared_ptr<Event> TimeWarpEventSet::getEvent (unsigned int thread_id) {
 
     unsigned int scheduler_id = worker_thread_scheduler_map_[thread_id];
 
-    schedule_queue_lock_[scheduler_id].lock();
+    
 
 #if defined(SORTED_LADDER_QUEUE) || defined(PARTIALLY_SORTED_LADDER_QUEUE)
     auto event = schedule_queue_[scheduler_id]->dequeue();
@@ -183,7 +182,7 @@ std::shared_ptr<Event> TimeWarpEventSet::getEvent (unsigned int thread_id) {
     // then, a rollback will bring the processed positive event back to input queue and they will
     // be cancelled.
 
-    schedule_queue_lock_[scheduler_id].unlock();
+    
 
     return event;
 }
@@ -334,9 +333,7 @@ void TimeWarpEventSet::startScheduling (unsigned int lp_id) {
     if (!unified_queue_[lp_id]->getUnprocessedSign()) {
         scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
         unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
-        schedule_queue_lock_[scheduler_id].lock();
         schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
-        schedule_queue_lock_[scheduler_id].unlock();
     } else {
         scheduled_event_pointer_[lp_id] = nullptr;
     }
@@ -410,9 +407,9 @@ void TimeWarpEventSet::replenishScheduler (unsigned int lp_id) {
     // NOTE: A pointer to the scheduled event will remain in the input queue
     if (!unified_queue_[lp_id]->getUnprocessedSign()) {
         scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
-        schedule_queue_lock_[scheduler_id].lock();
+        
         schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
-        schedule_queue_lock_[scheduler_id].unlock();
+        
     } else {
         scheduled_event_pointer_[lp_id] = nullptr;
     }
