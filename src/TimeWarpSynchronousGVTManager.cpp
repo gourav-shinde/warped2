@@ -58,7 +58,10 @@ void TimeWarpSynchronousGVTManager::progressGVT() {
             send_min_[i] = std::numeric_limits<unsigned int>::max();
         }
 
-        comm_manager_->minAllReduceUint(&local_min, &gVT_);
+        uint32_t gvt = gvTValues_.back(); //we calculate new gvt based on the last gvt value
+        comm_manager_->minAllReduceUint(&local_min, &gvt);
+        gvTValues_.emplace_back(gvt); // push new gvt into the queue
+        gvTValues_.pop_front(); // pop the oldest gvt from the queue
 
         gvt_updated_ = true;
 

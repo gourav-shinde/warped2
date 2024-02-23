@@ -42,12 +42,16 @@ public:
 
     virtual int64_t getMessageCount() = 0;
 
-    unsigned int getGVT() { return gVT_; }
+    unsigned int getGVT() { 
+        return gvTValues_.front();
+    }
 
 protected:
     const std::shared_ptr<TimeWarpCommunicationManager> comm_manager_;
 
     unsigned int gVT_ = 0;
+
+    std::deque<uint64_t> gvTValues_;
 
     std::chrono::time_point<std::chrono::steady_clock> gvt_start;
 

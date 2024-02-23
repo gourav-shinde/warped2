@@ -7,6 +7,9 @@ void TimeWarpGVTManager::initialize() {
     gvt_state_ = GVTState::IDLE;
     gvt_start = std::chrono::steady_clock::now();
     gvt_stop = std::chrono::steady_clock::now();
+    //2 states behind
+    gvTValues_.emplace_back(0);
+    gvTValues_.emplace_back(0);
 }
 
 void TimeWarpGVTManager::checkProgressGVT() {
