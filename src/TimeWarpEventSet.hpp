@@ -137,8 +137,6 @@ private:
     // you dont need this
     bool is_lp_migration_on_;
 
-    // Map worker thread to a schedule queue
-    std::vector<unsigned int> worker_thread_scheduler_map_;
 
     // Event scheduled from all lps
     std::vector<std::shared_ptr<Event>> scheduled_event_pointer_;
