@@ -11,7 +11,7 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
                                    unsigned int num_of_lps,
                                    bool is_lp_migration_on,
                                    unsigned int num_of_worker_threads) {
-
+    unused(num_of_worker_threads);
     num_of_lps_         = num_of_lps;
     num_of_schedulers_  = lps.size();
     is_lp_migration_on_ = is_lp_migration_on;
