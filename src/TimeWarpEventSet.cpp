@@ -11,7 +11,7 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
                                    unsigned int num_of_lps,
                                    bool is_lp_migration_on,
                                    unsigned int num_of_worker_threads) {
-
+    unused(num_of_worker_threads);
     num_of_lps_         = num_of_lps;
     num_of_schedulers_  = lps.size();
     is_lp_migration_on_ = is_lp_migration_on;
@@ -60,10 +60,7 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
 #endif
     }
 
-    /* Map worker threads to schedule queues. */
-    for (unsigned int thread_id = 0; thread_id < num_of_worker_threads; thread_id++) {
-        worker_thread_scheduler_map_.push_back(thread_id % num_of_schedulers_);
-    }
+    
 }
 
 
@@ -150,8 +147,6 @@ InsertStatus TimeWarpEventSet::insertEvent (
  */
 std::shared_ptr<Event> TimeWarpEventSet::getEvent (unsigned int thread_id) {
 
-    unsigned int scheduler_id = worker_thread_scheduler_map_[thread_id];
-
     
 
 #if defined(SORTED_LADDER_QUEUE) || defined(PARTIALLY_SORTED_LADDER_QUEUE)
@@ -167,11 +162,11 @@ std::shared_ptr<Event> TimeWarpEventSet::getEvent (unsigned int thread_id) {
     auto event = schedule_queue_[scheduler_id]->pop_front();
 
 #else  /* STL MultiSet */
-    auto event_iterator = schedule_queue_[scheduler_id]->begin();
-    auto event = (event_iterator != schedule_queue_[scheduler_id]->end()) ?
+    auto event_iterator = schedule_queue_[thread_id]->begin();
+    auto event = (event_iterator != schedule_queue_[thread_id]->end()) ?
                     *event_iterator : nullptr;
     if (event != nullptr) {
-        schedule_queue_[scheduler_id]->erase(event_iterator);
+        schedule_queue_[thread_id]->erase(event_iterator);
     }
 #endif
 
