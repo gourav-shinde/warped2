@@ -454,7 +454,6 @@ void TimeWarpEventDispatcher::cancelEvents(
 }
 
 void TimeWarpEventDispatcher::rollback(std::shared_ptr<Event> straggler_event) {
-
     unsigned int local_lp_id = local_lp_id_by_name_[straggler_event->receiverName()];
     LogicalProcess* current_lp = lps_by_name_[straggler_event->receiverName()];
 
@@ -469,7 +468,10 @@ void TimeWarpEventDispatcher::rollback(std::shared_ptr<Event> straggler_event) {
     twfs_manager_->rollback(straggler_event, local_lp_id);
 
     // We have major problems if we are rolling back past the GVT
-    assert(straggler_event->timestamp() >= gvt_manager_->getGVT());
+    if(straggler_event->timestamp() < gvt_manager_->getGVT()) {
+        std::cerr << "Rolling back past GVT: " << straggler_event->timestamp() << " > " << gvt_manager_->getGVT() << std::endl;
+        assert(false);
+    }
 
 #ifdef UNIFIED_QUEUE
     // if(straggler_event->event_type_ == EventType::NEGATIVE)
