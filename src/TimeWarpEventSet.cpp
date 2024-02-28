@@ -87,6 +87,7 @@ InsertStatus TimeWarpEventSet::insertEvent (
                     unsigned int lp_id, std::shared_ptr<Event> event) {
 
 #ifdef UNIFIED_QUEUE
+    
     unified_queue_[lp_id]->enqueue(event);
     unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
 #else
