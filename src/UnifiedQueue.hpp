@@ -62,6 +62,8 @@ private:
     std::atomic<uint32_t> dequeue_counter_ = 0;
     std::atomic<uint32_t> rollback_counter_ = 0;
     std::atomic<uint32_t> rollback_function_counter_ = 0;
+    std::atomic<uint32_t> negative_counter_ = 0;
+    std::atomic<uint32_t> invalid_counter_ = 0;
     const uint32_t freeStartMask_ = 0x000003FF;
     const uint32_t freeSignMask_ = 0x00000400;
     const uint32_t unprocessedStartMask_ = 0x001FF800;
@@ -207,9 +209,11 @@ public:
         // else{
         //     std::cout<<"Unprocessed Events Empty"<<std::endl;
         // }
-        // for (auto itr : queue_) {
-        //     std::cout << itr.getData().receiveTime_<< " ";
-        // }
+        for (auto itr : queue_) {
+            if(!itr.isValid())
+                std::cout<<"-";
+            std::cout << itr.getData()->timestamp()<< " ";
+        }
         // std::cout << std::endl;
          
     }
@@ -352,6 +356,8 @@ public:
                 std::cout<<"Dequeue Counter: "<<dequeue_counter_<<std::endl;
                 std::cout<<"Rollback Counter: "<<rollback_counter_<<std::endl;
                 std::cout<<"Rollback Function Counter: "<<rollback_function_counter_<<std::endl;
+                std::cout<<"Negative Counter: "<<negative_counter_<<std::endl;
+                std::cout<<"Invalid Counter: "<<invalid_counter_<<std::endl;
                 abort();
             }
 
@@ -694,6 +700,14 @@ public:
     //invalids the data at index
     void invalidateIndex(uint32_t index){
         queue_[index].invalidate();
+    }
+
+    void incInvalidCtr(){
+        invalid_counter_++;
+    }
+
+    void incNegativeCtr(){
+        negative_counter_++;
     }
 
 

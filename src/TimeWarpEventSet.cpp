@@ -85,61 +85,56 @@ void TimeWarpEventSet::releaseInputQueueLock (unsigned int lp_id) {
  */
 InsertStatus TimeWarpEventSet::insertEvent (
                     unsigned int lp_id, std::shared_ptr<Event> event) {
+    if(event->timestamp() == 421 && lp_id == 1090){
+        std::cout<<lp_id<<" ";
+        std::cout<<event->timestamp()<<" "<<event->sender_name_<<" "<<event->receiverName()<<" ";
+        if(event->event_type_ == EventType::POSITIVE){
+            std::cout<<"positive\n";
+        }
+        else{
+            std::cout<<"negative\n";
+        }
+    }
+    auto ret = InsertStatus::Success;
+    bool found = false;
+    if(event->event_type_ == EventType::NEGATIVE && unified_queue_[lp_id]->getUnprocessedSign() == false){
+        unified_queue_[lp_id]->incNegativeCtr();
+        uint64_t unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
+        uint64_t freeStart = unified_queue_[lp_id]->getFreeStart();
+        compareNegativeEvent compare;
+        //search for positive counterpart in Unprocessed zone
+        while(unProcessedStart!=freeStart){
+            if(compare(unified_queue_[lp_id]->getValue(unProcessedStart),event)){
+                //invalidate the positive counterpart
+                unified_queue_[lp_id]->incInvalidCtr();
+                // unified_queue_[lp_id]->invalidateIndex(unProcessedStart);
+                found = true;
+                ret = InsertStatus::NegativeCanceled;
+                break;
+            }
+            unProcessedStart = unified_queue_[lp_id]->nextIndex(unProcessedStart);
+        }
+        unused(found);
+        if(true){
+            unified_queue_[lp_id]->enqueue(event);
+        }
+    }
+    else{
+        unified_queue_[lp_id]->enqueue(event);
+    }
+    unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
 
-#ifdef UNIFIED_QUEUE
-    unified_queue_[lp_id]->enqueue(event);
-    unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
-#else
-    // Always insert event into input queue
-    input_queue_[lp_id]->insert(event);
-    unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
-#endif
     
     if (scheduled_event_pointer_[lp_id] == nullptr) {
         // If no event is currently scheduled. This can only happen if the thread that handles
         // events for lp with id == lp_id has determined that there are no more events left in
-        // its input queue
-#ifdef UNIFIED_QUEUE
-#else
-        assert(input_queue_[lp_id]->size() == 1);
-#endif
-        
+        // its input queue     
         schedule_queue_[scheduler_id]->insert(event);
         
         scheduled_event_pointer_[lp_id] = event;
-        return InsertStatus::StarvedObject;
+        ret = InsertStatus::StarvedObject;
     }
-#ifdef UNIFIED_QUEUE
-    
-#else
-    auto smallest_event = *input_queue_[lp_id]->begin();
-     if (smallest_event == scheduled_event_pointer_[lp_id]) {
-        return InsertStatus::LpOnly;
-    }
-
-    // If the pointer comparison of the smallest event does not match scheduled event, well
-    // that means we should update the schedule queue...
-    auto ret = InsertStatus::SchedEventSwapSuccess;
-    schedule_queue_lock_[scheduler_id].lock();
-#if defined(CIRCULAR_QUEUE)
-    if (schedule_queue_[scheduler_id]->deactivate(scheduled_event_pointer_[lp_id])) {
-#else
-    if (schedule_queue_[scheduler_id]->erase(scheduled_event_pointer_[lp_id])) {
-#endif
-        // ...but only if the event was successfully erased from the schedule queue. If it is
-        // not then the event is already being processed and a rollback will have to occur.
-        schedule_queue_[scheduler_id]->insert(smallest_event);
-        scheduled_event_pointer_[lp_id] = smallest_event;
-    } else {
-        ret = InsertStatus::SchedEventSwapFailure;
-    }
-    schedule_queue_lock_[scheduler_id].unlock();
     return ret;
-#endif
-    //this is not default behavious correct this below return statements
-    auto ret = InsertStatus::SchedEventSwapSuccess;
-    return ret;
-   
 }
 
 /*

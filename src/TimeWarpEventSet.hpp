@@ -29,7 +29,9 @@ enum class InsertStatus {
     LpOnly,
     StarvedObject,
     SchedEventSwapSuccess,
-    SchedEventSwapFailure
+    SchedEventSwapFailure,
+    Success,
+    NegativeCanceled
 };
 
 //combine process queue and input queue.

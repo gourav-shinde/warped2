@@ -411,9 +411,13 @@ void TimeWarpEventDispatcher::sendLocalEvent(std::shared_ptr<Event> event) {
     auto status = event_set_->insertEvent(receiver_lp_id, event);
     event_set_->releaseInputQueueLock(receiver_lp_id);
 #endif
-
+    
     // Make sure to track sends if we are in the middle of a GVT calculation.
-    gvt_manager_->reportThreadSendMin(event->timestamp(), thread_id);
+    if(status != InsertStatus::NegativeCanceled){
+        // std::cout<<"hmmm\n";
+        //discuss this with sonak
+        gvt_manager_->reportThreadSendMin(event->timestamp(), thread_id);
+    }
 
     if (status == InsertStatus::StarvedObject) {
         tw_stats_->upCount(EVENTS_FOR_STARVED_OBJECTS, thread_id);
