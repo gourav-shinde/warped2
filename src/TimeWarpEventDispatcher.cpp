@@ -377,18 +377,6 @@ void TimeWarpEventDispatcher::sendEvents(std::shared_ptr<Event> source_event,
 
     for (auto& e: new_events) {
 
-
-        if(true){
-                std::cout<<e->timestamp()<<" "<<e->sender_name_<<" "<<e->receiverName()<<" ";
-                if(e->event_type_ == EventType::POSITIVE){
-                    std::cout<<"positive\n";
-                }
-                else{
-                    std::cout<<"negative\n";
-                }
-        }
-
-
         // Make sure not to send any events past max time so we can terminate simulation
         if (e->timestamp() <= max_sim_time_) {
             e->sender_name_ = sender_lp->name_;
@@ -399,7 +387,7 @@ void TimeWarpEventDispatcher::sendEvents(std::shared_ptr<Event> source_event,
             output_manager_->insertEvent(source_event, e, sender_lp_id);
 
             unsigned int node_id = comm_manager_->getNodeID(e->receiverName());
-            std::cout<<"receuverName "<<e->receiverName()<<" nodeID"<<node_id<<std::endl;
+            
             
             if (node_id == comm_manager_->getID()) {
                 // Local event
@@ -416,15 +404,7 @@ void TimeWarpEventDispatcher::sendEvents(std::shared_ptr<Event> source_event,
 
 void TimeWarpEventDispatcher::sendLocalEvent(std::shared_ptr<Event> event) {
     unsigned int receiver_lp_id = local_lp_id_by_name_[event->receiverName()];
-    if(event->sender_name_!=event->receiverName()){
-        std::cout<<event->timestamp()<<" "<<event->sender_name_<<" "<<event->receiverName()<<" ";
-        if(event->event_type_ == EventType::POSITIVE){
-            std::cout<<"positive2\n";
-        }
-        else{
-            std::cout<<"negative2\n";
-        }
-    }
+    
     // NOTE: Event is assumed to be less than the maximum simulation time.
 
 #ifdef UNIFIED_QUEUE
