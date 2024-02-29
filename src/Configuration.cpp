@@ -75,9 +75,6 @@ const static std::string DEFAULT_CONFIG = R"x({
     // Number of Worker Threads
     "worker-threads": 3,
 
-    // Number of Schedule Queues
-    "scheduler-count": 1,
-
     // LP Migration valid options are "on" and "off"
     "lp-migration": "off",
 
@@ -240,7 +237,7 @@ Configuration::makeDispatcher(std::shared_ptr<TimeWarpCommunicationManager> comm
         }
 
         // SCHEDULE QUEUES
-        int num_schedulers = (*root_)["time-warp"]["scheduler-count"].asInt();
+        int num_schedulers = num_worker_threads;
         if (!checkTimeWarpConfigs(num_schedulers, all_config_ids, comm_manager)) {
             invalid_string += std::string("\tNumber of schedule queues\n");
         }
@@ -436,7 +433,7 @@ std::unique_ptr<Partitioner> Configuration::makeLocalPartitioner(unsigned int no
     unsigned int& num_schedulers) {
 
     unsigned int num_partitions = num_schedulers;
-    num_schedulers = (*root_)["time-warp"]["scheduler-count"].asUInt();
+    num_schedulers = (*root_)["time-warp"]["worker-threads"].asUInt();
 
     if (num_partitions == 1)
         return makePartitioner();

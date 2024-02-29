@@ -235,10 +235,10 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
 
             // Check to see if event is NEGATIVE and cancel
             if (event->event_type_ == EventType::NEGATIVE) {
-                event_set_->acquireInputQueueLock(current_lp_id);
+                
                 bool found = event_set_->cancelEvent(current_lp_id, event);
                 event_set_->startScheduling(current_lp_id);
-                event_set_->releaseInputQueueLock(current_lp_id);
+                
 
                 if (found) {
                     tw_stats_->upCount(CANCELLED_EVENTS, thread_id);
