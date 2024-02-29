@@ -224,19 +224,21 @@ void TimeWarpEventSet::rollback (unsigned int lp_id, std::shared_ptr<Event> stra
     if(straggler_event->event_type_ == EventType::NEGATIVE){
         // std::cout<<"-ve event\n";
         // try 
-        compareNegativeEvent compare;
-        if(compare(
-            unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart())),
-            unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()) ))
-        {
-            // std::cout<<"-ve event correct order\n";
-            unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart()));
-            unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getUnprocessedStart());
-        }
-        else{
-            std::cout<<"ERROR: negative event not in correct order\n";
-            abort();
-        }
+        // compareNegativeEvent compare;
+        // if(compare(
+        //     unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart())),
+        //     unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()) ))
+        // {
+        //     // std::cout<<"-ve event correct order\n";
+        //     unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart()));
+        //     unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getUnprocessedStart());
+        // }
+        // else{
+        //     std::cout<<"ERROR: negative event not in correct order\n";
+        //     abort();
+        // }
+        //assuming its in unprocessed zone
+        unified_queue_[lp_id]->negativeFind(straggler_event);
     }
     //technically the next event should be +ve counterpart and can be cancelled
    
