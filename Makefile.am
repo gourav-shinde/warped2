@@ -17,7 +17,8 @@ WARPED_INSTALL_HPP_FILES = \
     src/Simulation.hpp \
     src/warped.hpp \
     src/utility/memory.hpp \
-    src/utility/warnings.hpp
+    src/utility/warnings.hpp \
+    src/UnifiedQueue.hpp
 
 # All other headers are listed in this variable
 WARPED_NOINST_HPP_FILES = \
