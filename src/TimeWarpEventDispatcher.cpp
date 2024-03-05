@@ -220,34 +220,34 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
             // A rollback can occur in two situations:
             //      1. We get an event that is strictly less than the last processed event.
             //      2. We get an event that is equal to the last processed event and is negative.
-            if(current_lp_id == 6225){
+            // if(current_lp_id == 398){
 
-                if(event!=nullptr && event->timestamp() == 310){
-                    std::cout<<"Event: "<<event->timestamp()<<" "<<std::endl;
-                    if(last_processed_event!=nullptr ){
-                        std::cout<<"Last Processed Event: "<<last_processed_event->timestamp()<<" "<<std::endl;
-                    }
-                    else{
-                        std::cout<<"Last Processed Event: NULL"<<std::endl;
-                    }
-                }
-                else{
-                    std::cout<<"Event is NULL"<<std::endl;
-                }
-                if(last_processed_event!=nullptr && last_processed_event->timestamp() == 310){
-                    std::cout<<"Last Processed Event: "<<last_processed_event->timestamp()<<" "<<std::endl;
-                    if(event!=nullptr){
-                        std::cout<<"Event: "<<event->timestamp()<<" "<<std::endl;
-                    }
-                    else{
-                        std::cout<<"Event: NULL"<<std::endl;
-                    }
-                }
-                else{
-                    std::cout<<"Last Processed Event: NULL"<<std::endl;
+            //     if(event!=nullptr && event->timestamp() == 444){
+            //         std::cout<<"Event: "<<event->timestamp()<<" "<<std::endl;
+            //         if(last_processed_event!=nullptr ){
+            //             std::cout<<"Last Processed Event: "<<last_processed_event->timestamp()<<" "<<std::endl;
+            //         }
+            //         else{
+            //             std::cout<<"Last Processed Event: NULL"<<std::endl;
+            //         }
+            //     }
+            //     else{
+            //         std::cout<<"Event is NULL"<<std::endl;
+            //     }
+            //     if(last_processed_event!=nullptr && last_processed_event->timestamp() == 444){
+            //         std::cout<<"Last Processed Event: "<<last_processed_event->timestamp()<<" "<<std::endl;
+            //         if(event!=nullptr){
+            //             std::cout<<"Event: "<<event->timestamp()<<" "<<std::endl;
+            //         }
+            //         else{
+            //             std::cout<<"Event: NULL"<<std::endl;
+            //         }
+            //     }
+            //     else{
+            //         std::cout<<"Last Processed Event: NULL"<<std::endl;
                 
-                }
-            }
+            //     }
+            // }
             if (last_processed_event &&
                     ((*event < *last_processed_event) ||
                         ((*event == *last_processed_event) &&

@@ -5,7 +5,17 @@
 #include "TimeWarpEventSet.hpp"
 #include "utility/warnings.hpp"
 
+
 namespace warped {
+
+auto compareNegativeEvent2 = [](const std::shared_ptr<Event>& first,
+              const std::shared_ptr<Event>& second) {
+        return ((first->timestamp() == second->timestamp())
+                && (first->send_time_ == second->send_time_)
+                && (first->sender_name_ == second->sender_name_)
+                && (first->generation_ == second->generation_)
+                && (first->event_type_ == EventType::POSITIVE));
+};
 
 void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*>>& lps,
                                    unsigned int num_of_lps,
@@ -88,22 +98,22 @@ InsertStatus TimeWarpEventSet::insertEvent (
 
 
     auto ret = InsertStatus::Success;
-    compareNegativeEvent compare;
+    // compareNegativeEvent compare;
     uint32_t index = unified_queue_[lp_id]->enqueue(event);
-    if(event->event_type_ == EventType::NEGATIVE){
-        if(compare(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(index)),event)){
-            unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->nextIndex(index));
-            unified_queue_[lp_id]->invalidateIndex(index);
-            ret = InsertStatus::NegativeCancelled;
-        }
-    }
-    else{
-        if(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->prevIndex(index)) != nullptr && compare(event,unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->prevIndex(index)))){
-            unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->prevIndex(index));
-            unified_queue_[lp_id]->invalidateIndex(index);
-            ret = InsertStatus::PositiveCancelled;
-        }
-    }
+    // if(event->event_type_ == EventType::NEGATIVE){
+    //     if(compareNegativeEvent2(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(index)),event)){
+    //         unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->nextIndex(index));
+    //         unified_queue_[lp_id]->invalidateIndex(index);
+    //         ret = InsertStatus::NegativeCancelled;
+    //     }
+    // }
+    // else{
+    //     if(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->prevIndex(index)) != nullptr && compareNegativeEvent2(event,unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->prevIndex(index)))){
+    //         unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->prevIndex(index));
+    //         unified_queue_[lp_id]->invalidateIndex(index);
+    //         ret = InsertStatus::PositiveCancelled;
+    //     }
+    // }
     unused(index);
     unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
 
@@ -201,74 +211,27 @@ void TimeWarpEventSet::rollback (unsigned int lp_id, std::shared_ptr<Event> stra
      //the data for this function is locally asseciable in the queue
      //check if next one is already positive or not
  
-    
+    unified_queue_[lp_id]->fixPosition(false);
 
     //invalidate the -ve event in the unified queue
     if(straggler_event->event_type_ == EventType::NEGATIVE){
-        if(straggler_event->timestamp() == 310 && lp_id == 6225){
-            unified_queue_[lp_id]->debug(true, 10);
-            unified_queue_[lp_id]->fixPosition(true);
-            unified_queue_[lp_id]->debug(true, 10);
-        }
-        else{
-            unified_queue_[lp_id]->fixPosition(false);
-        }
-        
-        
         compareNegativeEvent compare;
-        auto t1 = unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getNextValidIndex(unified_queue_[lp_id]->getUnprocessedStart()));
-        auto t2 = unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart());
-        if(compare(
-            t1,
-            t2 ))
-        {
-            // std::cout<<"-ve event correct order\n";
-            unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getNextValidIndex(unified_queue_[lp_id]->getUnprocessedStart()));
-            unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getUnprocessedStart());
-        }
-        else{
-            //maybe sort the queue and check again
-            std::cout<<straggler_event->timestamp()<<" "<<lp_id<<"\n";
-            std::cout<<"ERROR: negative event not in correct order\n";
-            unified_queue_[lp_id]->debug(true, 5);
+        uint32_t Unprocessedindex = unified_queue_[lp_id]->getUnprocessedStart();
+        uint32_t Freeindex = unified_queue_[lp_id]->getFreeStart();
 
-            // sleep(1);
-            abort();
-            // std::cout<<" Now sorting \n";
-            // unified_queue_[lp_id]->sortListFromTo(unified_queue_[lp_id]->getUnprocessedStart(),unified_queue_[lp_id]->getFreeStart());
-            // unified_queue_[lp_id]->debug(true, 10);
-            
-
-            // auto t1 = unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getNextValidIndex(unified_queue_[lp_id]->getUnprocessedStart()));
-            // auto t2 = unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart());
-            // if(compare(
-            //     t1,
-            //     t2 ))
-            // {
-            //     // std::cout<<"-ve event correct order\n";
-            //     unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getNextValidIndex(unified_queue_[lp_id]->getUnprocessedStart()));
-            //     unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getUnprocessedStart());
-            // }
-            // else{
-            //     std::cout<<"failed after sorting\n";
-            //     abort();
-            // }
+        while(Unprocessedindex != Freeindex){
+            if(unified_queue_[lp_id]->isDataValid(Unprocessedindex)){
+                if(compare(unified_queue_[lp_id]->getValue(Unprocessedindex),straggler_event)){
+                    unified_queue_[lp_id]->invalidateIndex(Unprocessedindex);
+                    break;
+                }
+            }
+            Unprocessedindex = unified_queue_[lp_id]->nextIndex(Unprocessedindex);
         }
-        //assuming its in unprocessed zone
-        // auto status = unified_queue_[lp_id]->negativeFind(straggler_event);
-        // if(status == unified_queue_[lp_id]->FindStatus::NOTFOUND){
-        //     std::cout<<"ERROR: not found\n";
-        //     abort();
-        // }
-        // if(status == unified_queue_[lp_id]->FindStatus::ACTIVE){
-        //     std::cout<<"ERROR: found +ve counterpart in active zone\n";
-        //     abort();
-        // }
+        //this should do it hopefully
         
     }
-    else{
-        unified_queue_[lp_id]->fixPosition(false);
-    }
+    
   
         
 
