@@ -86,59 +86,39 @@ void TimeWarpEventSet::releaseInputQueueLock (unsigned int lp_id) {
 InsertStatus TimeWarpEventSet::insertEvent (
                     unsigned int lp_id, std::shared_ptr<Event> event) {
 
-#ifdef UNIFIED_QUEUE
-    
-    unified_queue_[lp_id]->enqueue(event);
+
+    auto ret = InsertStatus::Success;
+    compareNegativeEvent compare;
+    uint32_t index = unified_queue_[lp_id]->enqueue(event);
+    if(event->event_type_ == EventType::NEGATIVE){
+        if(compare(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(index)),event)){
+            unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->nextIndex(index));
+            unified_queue_[lp_id]->invalidateIndex(index);
+            ret = InsertStatus::NegativeCancelled;
+        }
+    }
+    else{
+        if(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->prevIndex(index)) != nullptr && compare(event,unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->prevIndex(index)))){
+            unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->prevIndex(index));
+            unified_queue_[lp_id]->invalidateIndex(index);
+            ret = InsertStatus::PositiveCancelled;
+        }
+    }
+    unused(index);
     unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
-#else
-    // Always insert event into input queue
-    input_queue_[lp_id]->insert(event);
-    unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
-#endif
+
     
-    if (scheduled_event_pointer_[lp_id] == nullptr) {
+    if (scheduled_event_pointer_[lp_id] == nullptr && ret == InsertStatus::Success) {
         // If no event is currently scheduled. This can only happen if the thread that handles
         // events for lp with id == lp_id has determined that there are no more events left in
         // its input queue
-#ifdef UNIFIED_QUEUE
-#else
-        assert(input_queue_[lp_id]->size() == 1);
-#endif
-        
+
         schedule_queue_[scheduler_id]->insert(event);
         
         scheduled_event_pointer_[lp_id] = event;
         return InsertStatus::StarvedObject;
     }
-#ifdef UNIFIED_QUEUE
     
-#else
-    auto smallest_event = *input_queue_[lp_id]->begin();
-     if (smallest_event == scheduled_event_pointer_[lp_id]) {
-        return InsertStatus::LpOnly;
-    }
-
-    // If the pointer comparison of the smallest event does not match scheduled event, well
-    // that means we should update the schedule queue...
-    auto ret = InsertStatus::SchedEventSwapSuccess;
-    schedule_queue_lock_[scheduler_id].lock();
-#if defined(CIRCULAR_QUEUE)
-    if (schedule_queue_[scheduler_id]->deactivate(scheduled_event_pointer_[lp_id])) {
-#else
-    if (schedule_queue_[scheduler_id]->erase(scheduled_event_pointer_[lp_id])) {
-#endif
-        // ...but only if the event was successfully erased from the schedule queue. If it is
-        // not then the event is already being processed and a rollback will have to occur.
-        schedule_queue_[scheduler_id]->insert(smallest_event);
-        scheduled_event_pointer_[lp_id] = smallest_event;
-    } else {
-        ret = InsertStatus::SchedEventSwapFailure;
-    }
-    schedule_queue_lock_[scheduler_id].unlock();
-    return ret;
-#endif
-    //this is not default behavious correct this below return statements
-    auto ret = InsertStatus::SchedEventSwapSuccess;
     return ret;
    
 }
@@ -213,47 +193,85 @@ void TimeWarpEventSet::rollback (unsigned int lp_id, std::shared_ptr<Event> stra
     // Every event GREATER OR EQUAL to straggler event must remove from the processed queue and
     // reinserted back into input queue.
     // EQUAL will ensure that a negative message will properly be cancelled out.
-#ifdef UNIFIED_QUEUE
+
     unused(straggler_event);
     // std::cout<<"fixposition called\n";
     // std::cout<<"LPID: "<<lp_id<<"\n";
     // unified_queue_[lp_id]->debug();
-    unified_queue_[lp_id]->fixPosition(); //the data for this function is locally asseciable in the queue
+     //the data for this function is locally asseciable in the queue
+     //check if next one is already positive or not
+ 
     
+
     //invalidate the -ve event in the unified queue
     if(straggler_event->event_type_ == EventType::NEGATIVE){
-        // std::cout<<"-ve event\n";
-        // try 
-        // compareNegativeEvent compare;
-        // if(compare(
-        //     unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart())),
-        //     unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()) ))
-        // {
-        //     // std::cout<<"-ve event correct order\n";
-        //     unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart()));
-        //     unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getUnprocessedStart());
-        // }
-        // else{
-        //     std::cout<<"ERROR: negative event not in correct order\n";
+        if(straggler_event->timestamp() == 310 && lp_id == 6225){
+            unified_queue_[lp_id]->debug(true, 10);
+            unified_queue_[lp_id]->fixPosition(true);
+            unified_queue_[lp_id]->debug(true, 10);
+        }
+        else{
+            unified_queue_[lp_id]->fixPosition(false);
+        }
+        
+        
+        compareNegativeEvent compare;
+        auto t1 = unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getNextValidIndex(unified_queue_[lp_id]->getUnprocessedStart()));
+        auto t2 = unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart());
+        if(compare(
+            t1,
+            t2 ))
+        {
+            // std::cout<<"-ve event correct order\n";
+            unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getNextValidIndex(unified_queue_[lp_id]->getUnprocessedStart()));
+            unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getUnprocessedStart());
+        }
+        else{
+            //maybe sort the queue and check again
+            std::cout<<straggler_event->timestamp()<<" "<<lp_id<<"\n";
+            std::cout<<"ERROR: negative event not in correct order\n";
+            unified_queue_[lp_id]->debug(true, 5);
+
+            // sleep(1);
+            abort();
+            // std::cout<<" Now sorting \n";
+            // unified_queue_[lp_id]->sortListFromTo(unified_queue_[lp_id]->getUnprocessedStart(),unified_queue_[lp_id]->getFreeStart());
+            // unified_queue_[lp_id]->debug(true, 10);
+            
+
+            // auto t1 = unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getNextValidIndex(unified_queue_[lp_id]->getUnprocessedStart()));
+            // auto t2 = unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart());
+            // if(compare(
+            //     t1,
+            //     t2 ))
+            // {
+            //     // std::cout<<"-ve event correct order\n";
+            //     unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getNextValidIndex(unified_queue_[lp_id]->getUnprocessedStart()));
+            //     unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getUnprocessedStart());
+            // }
+            // else{
+            //     std::cout<<"failed after sorting\n";
+            //     abort();
+            // }
+        }
+        //assuming its in unprocessed zone
+        // auto status = unified_queue_[lp_id]->negativeFind(straggler_event);
+        // if(status == unified_queue_[lp_id]->FindStatus::NOTFOUND){
+        //     std::cout<<"ERROR: not found\n";
         //     abort();
         // }
-        //assuming its in unprocessed zone
-        unified_queue_[lp_id]->negativeFind(straggler_event);
+        // if(status == unified_queue_[lp_id]->FindStatus::ACTIVE){
+        //     std::cout<<"ERROR: found +ve counterpart in active zone\n";
+        //     abort();
+        // }
+        
     }
-    //technically the next event should be +ve counterpart and can be cancelled
-   
-#else
-    auto event_riterator = processed_queue_[lp_id]->rbegin();  // Starting with largest event
-
-    while (event_riterator != processed_queue_[lp_id]->rend() && (**event_riterator >= *straggler_event)){
-
-        auto event = std::move(processed_queue_[lp_id]->back()); // Starting from largest event
-        assert(event);
-        processed_queue_[lp_id]->pop_back();
-        input_queue_[lp_id]->insert(event);
-        event_riterator = processed_queue_[lp_id]->rbegin();
+    else{
+        unified_queue_[lp_id]->fixPosition(false);
     }
-#endif
+  
+        
+
 }
 
 /*

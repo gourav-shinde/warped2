@@ -77,6 +77,38 @@ private:
     std::atomic<uint32_t> marker_; //test with this datatype
     comparator compare_; //currently not  used, as we are not sorting anymore
     negativeCounterPart negativeCounterPart_; //used to find negative counterpart
+
+    // auto compare2(){
+    //         return [compare_](Data a, Data b){
+    //             return compare_(a.getData(), b.getData());
+    //         };
+    // };
+
+    /// @brief This fixes the position of the events
+    /// This is called to fixposition of invalid events in Active Zone (we want to maintain the state)
+    void fixPositionInvalid(uint32_t index) {
+        rollback_function_counter_++;
+        
+
+       uint32_t marker = marker_.load(std::memory_order_relaxed);
+       uint32_t activeStart = ActiveStart(marker);
+
+#ifdef GTEST_FOUND
+        std::cout << "Fixposition called " << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+#endif
+        //find index to swap with
+
+        //get previous valid event from unprocessed start
+        uint16_t swap_index_r = index;
+       
+        while (swap_index_r != activeStart && (compare_(queue_[swap_index_r].getData(), queue_[prevIndex(swap_index_r)].getData()) || !queue_[prevIndex(swap_index_r)].isValid())) {
+            std::swap(queue_[prevIndex(swap_index_r)], queue_[swap_index_r]);
+            swap_index_r = prevIndex(swap_index_r);
+        }
+        
+        
+    }
     
 public:
     UnifiedQueue(uint16_t capacity=1024){
@@ -190,7 +222,7 @@ public:
         return INT16_MAX;// some other condition i do not know of
     }
 
-    void debug(){
+    void debug(bool unprocessed=false, uint32_t range = 0){
         //print marker_ in hexcode
         // std::cout << "marker_: " << std::hex << marker_.load(std::memory_order_relaxed) << std::endl;
         std::cout << "activeStart: " << getActiveStart();
@@ -212,9 +244,23 @@ public:
         //     std::cout<<"Unprocessed Events Empty"<<std::endl;
         // }
         // for (auto itr : queue_) {
-        //     std::cout << itr.getData().receiveTime_<< " ";
+        //     std::cout << itr.getData()->timestamp()<< " ";
         // }
         // std::cout << std::endl;
+        if(unprocessed){
+            uint32_t i = getUnprocessedStart();
+            for(uint32_t j=0;j<range;j++){
+                i = prevIndex(i);
+            }
+            for(uint32_t j=0;j<range*2;j++){
+                std::cout <<"("<<i<<",";
+                if(!queue_[i].isValid())
+                    std::cout<<"-";
+                std::cout<<queue_[i].getData()->timestamp() << ")";
+                i = nextIndex(i);
+            }
+            std::cout << std::endl;
+        }
          
     }
 
@@ -343,8 +389,10 @@ public:
     }
 
     // we are not handling out of order elements in this queue.
-    bool enqueue(T element){
+    //returns index where it was inserted
+    uint32_t enqueue(T element){
         enqueue_counter_++;
+        uint32_t insertPos = 0;
         bool success = false;
         while(!success){
             //checks first
@@ -384,9 +432,10 @@ public:
                 //FOR OUT OF ORDER LOGIC
                 if(isEmpty()){//queue is empty
                     queue_[UnprocessedStart(markerCopy)] = element;
+                    insertPos = UnprocessedStart(markerCopy);
                 }
                 else{
-                    int insertPos = findInsertPosition(element, UnprocessedStart(markerCopy), FreeStart(markerCopy));
+                    insertPos = findInsertPosition(element, UnprocessedStart(markerCopy), FreeStart(markerCopy));
                     shiftElements(insertPos, FreeStart(markerCopy));
                     queue_[insertPos] = element;
                 }
@@ -402,7 +451,7 @@ public:
            
         
         // std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        return true;
+        return insertPos;
     }
 
 
@@ -449,6 +498,10 @@ public:
                     if(queue_[UnprocessedStart(markerCopy)].isValid()){//this will make it so the function retrives next element if invalid element is found
                         success = true;
                         dequeue_counter_++;
+                    }
+                    else{
+                        //call the fix position to make sure the events are sorted in active zone
+                        fixPositionInvalid(UnprocessedStart(markerCopy));
                     }
             }
             if(success)
@@ -575,7 +628,7 @@ public:
 
     /// @brief This fixes the position of the events
     /// No Markers change
-    void fixPosition() {
+    void fixPosition(bool debug=false) {
         rollback_function_counter_++;
         if (getActiveStart() == getUnprocessedStart()) {//active zone is empty
             return;
@@ -589,18 +642,29 @@ public:
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 #endif
         //find index to swap with
-
+        lock_.lock();
         //get previous valid event from unprocessed start
         uint16_t swap_index_r = prevIndex(UnprocessedStart(marker));
-
-        while (swap_index_r != activeStart && compare_(queue_[swap_index_r].getData(), queue_[prevIndex(swap_index_r)].getData())) {
+        if(debug ==true){
+            std::cout<<"swap index start "<<swap_index_r<<std::endl;
+        }
+        while (swap_index_r != activeStart && (compare_(queue_[swap_index_r].getData(), queue_[prevIndex(swap_index_r)].getData()) )) {
+            // if(debug){
+            //     std::cout<<"index "<<swap_index_r<<" "<<prevIndex(swap_index_r)<<std::endl;
+            //     std::cout<<"swap "<<queue_[prevIndex(swap_index_r)].getData()->timestamp()<<" "<<queue_[swap_index_r].getData()->timestamp()<<std::endl;
+            // }
             std::swap(queue_[prevIndex(swap_index_r)], queue_[swap_index_r]);
             
             swap_index_r = prevIndex(swap_index_r);
             rollback_counter_++;
-            setUnprocessedSign(false);
-            setUnprocessedStart(swap_index_r);
+            
         }
+        setUnprocessedSign(false);
+        if(debug ==true){
+            std::cout<<"swap index end "<<swap_index_r<<std::endl;
+        }
+        setUnprocessedStart(swap_index_r);
+        lock_.unlock();
 
         
     }
@@ -618,7 +682,7 @@ public:
             do{
                     element=queue_[prevIndex(index)].getData();
                 index=prevIndex(index);
-            }while(!queue_[prevIndex(index)].isValid() && prevIndex(getActiveStart())!=prevIndex(index)); // this can be Infinite if all elements are invalid
+            }while(!queue_[prevIndex(index)].isValid() && getActiveStart()!=index); // this can be Infinite if all elements are invalid
             return element;
         }
     }
@@ -701,6 +765,42 @@ public:
     void invalidateIndex(uint32_t index){
         queue_[index].invalidate();
     }
+
+
+    uint32_t getNextValidIndex(uint32_t index){
+        index = nextIndex(index);
+        while(!queue_[index].isValid()){
+            index = nextIndex(index);
+        }
+        return index;
+    }
+
+    // void sortListFromTo(uint32_t a, uint32_t b) {
+        
+    //     std::vector<Data> lst = queue_;
+    //     uint32_t n = lst.size();
+    //     // Create a new vector to hold the concatenated list
+    //     std::vector<Data> extended_list(lst.size() * 2);
+        
+    //     // Copy the original list to the beginning and end of the extended list
+    //     std::copy(lst.begin(), lst.end(), extended_list.begin());
+    //     std::copy(lst.begin(), lst.end(), extended_list.begin() + n);
+        
+    //     // Extract the sublist from index a to index b
+    //     std::vector<Data> sublist(extended_list.begin() + a, extended_list.begin() + b + 1);
+        
+    //     // Sort the sublist
+    //     std::sort(sublist.begin(), sublist.end(), [this->compare_](Data a, Data b){
+    //             return compare_(a.getData(), b.getData());
+    //         });
+        
+    //     // Replace the sublist in the original list with the sorted sublist
+    //     std::copy(sublist.begin(), sublist.end(), lst.begin() + a);
+        
+    //     queue_ = std::move(lst);
+    // }
+
+
 
 
 };

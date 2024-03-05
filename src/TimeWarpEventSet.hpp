@@ -26,6 +26,9 @@
 namespace warped {
 
 enum class InsertStatus {
+    Success,
+    NegativeCancelled,
+    PositiveCancelled,
     LpOnly,
     StarvedObject,
     SchedEventSwapSuccess,
