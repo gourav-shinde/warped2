@@ -184,12 +184,13 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
 
             // If needed, report event for this thread so GVT can be calculated
             auto lowest_timestamp = event->timestamp();
+            unused(lowest_timestamp);
 
 #ifdef PARTIALLY_SORTED_LADDER_QUEUE
             lowest_timestamp = event_set_->lowestTimestamp(thread_id);
 #endif
 
-            gvt_manager_->reportThreadMin(lowest_timestamp, thread_id, local_gvt_flag);
+            // gvt_manager_->reportThreadMin(lowest_timestamp, thread_id, local_gvt_flag);
 
             // Make sure that if this thread is currently seen as passive, we update it's state
             //  so we don't terminate early.
