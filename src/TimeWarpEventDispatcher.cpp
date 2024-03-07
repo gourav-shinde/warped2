@@ -182,12 +182,9 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
             event_stats     += "," + std::to_string(event->timestamp());
 #endif
 
-            // If needed, report event for this thread so GVT can be calculated
-            auto lowest_timestamp = event->timestamp();
+            
+            auto lowest_timestamp = event_set_->lowestTimestamp(thread_id);
 
-#ifdef PARTIALLY_SORTED_LADDER_QUEUE
-            lowest_timestamp = event_set_->lowestTimestamp(thread_id);
-#endif
 
             gvt_manager_->reportThreadMin(lowest_timestamp, thread_id, local_gvt_flag);
 
@@ -378,15 +375,15 @@ void TimeWarpEventDispatcher::sendEvents(std::shared_ptr<Event> source_event,
     for (auto& e: new_events) {
 
 
-        if(true){
-                std::cout<<e->timestamp()<<" "<<e->sender_name_<<" "<<e->receiverName()<<" ";
-                if(e->event_type_ == EventType::POSITIVE){
-                    std::cout<<"positive\n";
-                }
-                else{
-                    std::cout<<"negative\n";
-                }
-        }
+        // if(true){
+        //         std::cout<<e->timestamp()<<" "<<e->sender_name_<<" "<<e->receiverName()<<" ";
+        //         if(e->event_type_ == EventType::POSITIVE){
+        //             std::cout<<"positive\n";
+        //         }
+        //         else{
+        //             std::cout<<"negative\n";
+        //         }
+        // }
 
 
         // Make sure not to send any events past max time so we can terminate simulation
@@ -399,7 +396,7 @@ void TimeWarpEventDispatcher::sendEvents(std::shared_ptr<Event> source_event,
             output_manager_->insertEvent(source_event, e, sender_lp_id);
 
             unsigned int node_id = comm_manager_->getNodeID(e->receiverName());
-            std::cout<<"receuverName "<<e->receiverName()<<" nodeID"<<node_id<<std::endl;
+            
             
             if (node_id == comm_manager_->getID()) {
                 // Local event

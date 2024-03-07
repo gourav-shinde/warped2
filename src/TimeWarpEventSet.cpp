@@ -183,16 +183,20 @@ std::shared_ptr<Event> TimeWarpEventSet::getEvent (unsigned int thread_id) {
     return event;
 }
 
-#ifdef PARTIALLY_SORTED_LADDER_QUEUE
-/*
- *  NOTE: This is needed only for partially unsorted ladder queue
- */
-unsigned int TimeWarpEventSet::lowestTimestamp (unsigned int thread_id) {
 
-    unsigned int scheduler_id = worker_thread_scheduler_map_[thread_id];
-    return schedule_queue_[scheduler_id]->lowestTimestamp();
+uint32_t TimeWarpEventSet::lowestTimestamp (unsigned int thread_id) {
+    if (schedule_queue_[thread_id] == nullptr || schedule_queue_[thread_id]->empty()) {
+        return INT32_MAX;
+    }
+
+    auto event = *schedule_queue_[thread_id]->begin();
+    if (event == nullptr) {
+        return INT32_MAX;
+    }
+
+    return event->timestamp();
 }
-#endif
+
 
 /*
  *  NOTE: caller must have the input queue lock for the lp with id lp_id
