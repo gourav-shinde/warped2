@@ -491,13 +491,19 @@ void TimeWarpEventSet::printEvent(std::shared_ptr<Event> event) {
 unsigned int TimeWarpEventSet::fossilCollect (unsigned int fossil_collect_time, unsigned int lp_id) {
     // std::cout<<"fossilCollect called\n";
     unsigned int count = 0;
-#ifdef UNIFIED_QUEUE
-    if(unified_queue_[lp_id]->getUnprocessedSign()){
-        return count;
-    }
+
+    
     //this is for termination of the warped kernel
     if (fossil_collect_time == (unsigned int)-1) {
-        return abs(unified_queue_[lp_id]->getActiveStart()-unified_queue_[lp_id]->getUnprocessedStart());
+        uint32_t activeStart = unified_queue_[lp_id]->getActiveStart();
+        uint32_t unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
+        while(activeStart != unProcessedStart){
+            unified_queue_[lp_id]->getValue(activeStart).reset();
+            activeStart++;
+            if(unified_queue_[lp_id]->isDataValid(activeStart)){
+                count++;
+            }
+        }
     }
 
     //normal, do fossile collection until events smaller than equal to fossil-collection-time
@@ -508,30 +514,11 @@ unsigned int TimeWarpEventSet::fossilCollect (unsigned int fossil_collect_time, 
         unified_queue_[lp_id]->nextIndex(activeStart) != unified_queue_[lp_id]->nextIndex((unified_queue_[lp_id]->getUnprocessedStart()))){
         unified_queue_[lp_id]->getValue(activeStart).reset();
         activeStart++;
-        count++;
+        if(unified_queue_[lp_id]->isDataValid(activeStart)){
+                count++;
+        }
     }
     unified_queue_[lp_id]->setActiveStart(activeStart);
-
-#else
-    if (processed_queue_[lp_id]->empty()) {
-        return count;
-    }
-
-    if (fossil_collect_time == (unsigned int)-1) {
-        count = processed_queue_[lp_id]->size();
-        processed_queue_[lp_id]->clear();
-        return count;
-    }
-
-    auto event_iterator = processed_queue_[lp_id]->begin();
-    while ((event_iterator != std::prev(processed_queue_[lp_id]->end())) &&
-           ((*event_iterator)->timestamp() < fossil_collect_time)) {
-        processed_queue_[lp_id]->pop_front();
-        event_iterator = processed_queue_[lp_id]->begin();
-        count++;
-    }
-
-#endif
 
     return count;
 }
