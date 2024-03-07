@@ -215,6 +215,8 @@ void TimeWarpEventSet::rollback (unsigned int lp_id, std::shared_ptr<Event> stra
 
     //invalidate the -ve event in the unified queue
     if(straggler_event->event_type_ == EventType::NEGATIVE){
+        //negative event, we need to invalidate it
+        unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getUnprocessedStart());
         compareNegativeEvent compare;
         uint32_t Unprocessedindex = unified_queue_[lp_id]->getUnprocessedStart();
         uint32_t Freeindex = unified_queue_[lp_id]->getFreeStart();
