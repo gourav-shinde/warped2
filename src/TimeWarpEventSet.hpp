@@ -58,11 +58,8 @@ public:
 
     std::shared_ptr<Event> getEvent (unsigned int thread_id);
 
-#ifdef PARTIALLY_SORTED_LADDER_QUEUE
     unsigned int lowestTimestamp (unsigned int thread_id);
-#endif
 
-    //done
     std::shared_ptr<Event> lastProcessedEvent (unsigned int lp_id);
 
     void rollback (unsigned int lp_id, std::shared_ptr<Event> straggler_event);
