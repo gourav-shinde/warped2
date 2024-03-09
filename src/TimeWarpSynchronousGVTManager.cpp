@@ -10,7 +10,9 @@ namespace warped {
 enum class Color;
 
 void TimeWarpSynchronousGVTManager::initialize() {
-    pthread_barrier_init(&min_report_barrier_, NULL, num_worker_threads_+1);
+    pthread_barrier_init(&gvt_barrier1_, NULL, num_worker_threads_+1);
+    pthread_barrier_init(&gvt_barrier2_, NULL, num_worker_threads_+2);
+    pthread_barrier_init(&gvt_barrier3_, NULL, num_worker_threads_+1);
 
     local_min_ = make_unique<unsigned int []>(num_worker_threads_+1);
     send_min_ = make_unique<unsigned int []>(num_worker_threads_+1);
@@ -36,7 +38,7 @@ void TimeWarpSynchronousGVTManager::progressGVT() {
 
         color_.store(Color::RED);
         local_gvt_flag_.store(1);
-        pthread_barrier_wait(&min_report_barrier_);
+        pthread_barrier_wait(&gvt_barrier1_);
 
         gvt_state_ = GVTState::GLOBAL;
 
@@ -49,6 +51,7 @@ void TimeWarpSynchronousGVTManager::progressGVT() {
             if(total_msg_count == 0)
                 break;
         }
+        pthread_barrier_wait(&gvt_barrier2_);
 
         unsigned int local_min = recv_min_;
         recv_min_ = std::numeric_limits<unsigned int>::max();
@@ -64,7 +67,7 @@ void TimeWarpSynchronousGVTManager::progressGVT() {
 
         color_.store(Color::WHITE);
         local_gvt_flag_.store(0);
-        pthread_barrier_wait(&min_report_barrier_);
+        pthread_barrier_wait(&gvt_barrier3_);
 
         gvt_stop = std::chrono::steady_clock::now();
         gvt_state_ = GVTState::IDLE;
@@ -103,10 +106,10 @@ bool TimeWarpSynchronousGVTManager::gvtUpdated() {
 void TimeWarpSynchronousGVTManager::reportThreadMin(unsigned int timestamp, unsigned int thread_id,
                                                     unsigned int local_gvt_flag) {
     if (local_gvt_flag > 0) {
+        pthread_barrier_wait(&gvt_barrier1_);
+        pthread_barrier_wait(&gvt_barrier2_);
         local_min_[thread_id] = timestamp;
-
-        pthread_barrier_wait(&min_report_barrier_);
-        pthread_barrier_wait(&min_report_barrier_);
+        pthread_barrier_wait(&gvt_barrier3_);
     }
 }
 

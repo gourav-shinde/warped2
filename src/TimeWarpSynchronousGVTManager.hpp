@@ -57,7 +57,9 @@ protected:
 
     unsigned int recv_min_;
 
-    pthread_barrier_t min_report_barrier_;
+    pthread_barrier_t gvt_barrier1_;
+    pthread_barrier_t gvt_barrier2_;
+    pthread_barrier_t gvt_barrier3_;
 
 };
 
