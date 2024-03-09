@@ -246,7 +246,7 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
 
             // process event and get new events
             auto new_events = current_lp->receiveEvent(*event);
-            std::cout<<"new events "<<new_events.size()<<std::endl;
+            // std::cout<<"new events "<<new_events.size()<<std::endl;
             tw_stats_->upCount(EVENTS_PROCESSED, thread_id);
 
             // Save state
@@ -333,7 +333,7 @@ void TimeWarpEventDispatcher::sendEvents(std::shared_ptr<Event> source_event,
             
             if (node_id == comm_manager_->getID()) {
                 // Local event
-                std::cout<<"calling"<<std::endl;
+                // std::cout<<"calling"<<std::endl;
                 sendLocalEvent(e);
                 tw_stats_->upCount(LOCAL_POSITIVE_EVENTS_SENT, thread_id);
             } else {
@@ -347,7 +347,7 @@ void TimeWarpEventDispatcher::sendEvents(std::shared_ptr<Event> source_event,
 
 void TimeWarpEventDispatcher::sendLocalEvent(std::shared_ptr<Event> event) {
     unsigned int receiver_lp_id = local_lp_id_by_name_[event->receiverName()];
-    std::cout<<"sending local event\n";
+    // std::cout<<"sending local event\n";
     // NOTE: Event is assumed to be less than the maximum simulation time.
 
 #ifdef UNIFIED_QUEUE
