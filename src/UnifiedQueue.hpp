@@ -186,7 +186,7 @@ public:
         return INT16_MAX;// some other condition i do not know of
     }
 
-    void debug(){
+    void debug(bool debug = false, uint32_t range = 0){
         //print marker_ in hexcode
         // std::cout << "marker_: " << std::hex << marker_.load(std::memory_order_relaxed) << std::endl;
         std::cout << "activeStart: " << getActiveStart();
@@ -211,6 +211,24 @@ public:
         //     std::cout << itr.getData().receiveTime_<< " ";
         // }
         // std::cout << std::endl;
+
+        if(debug){
+            uint32_t i = getUnprocessedStart();
+            for(uint32_t j=0;j<range;j++){
+                i = prevIndex(i);
+            }
+            for(uint32_t j=0;j<range*2;j++){
+                std::cout <<"("<<i<<",";
+                if(!queue_[i].isValid())
+                    std::cout<<"-";
+                std::cout<<queue_[i].getData()->timestamp() << ")";
+                i = nextIndex(i);
+                if(i == getFreeStart()){
+                    break;
+                }
+            }
+            std::cout << std::endl;
+        }
          
     }
 
@@ -569,10 +587,10 @@ public:
 
     /// @brief This fixes the position of the events
     /// No Markers change
-    void fixPosition() {
+    bool fixPosition() {
         rollback_function_counter_++;
-        if (getActiveStart() == getUnprocessedStart()) {//active zone is empty
-            return;
+        if (getActiveStart() == getUnprocessedStart() && !getFreeSign()) {//active zone is empty
+            return false;
         }
 
         uint32_t marker = marker_.load(std::memory_order_relaxed);
@@ -586,7 +604,9 @@ public:
 
         //get previous valid event from unprocessed start
         uint16_t swap_index_r = prevIndex(UnprocessedStart(marker));
-
+        uint16_t swap_index_l = swap_index_r;
+        // debug(true, 5);
+        // std::cout<<"swap_index_r: "<<swap_index_r<<std::endl;
         while (swap_index_r != activeStart && compare_(queue_[swap_index_r].getData(), queue_[prevIndex(swap_index_r)].getData())) {
             std::swap(queue_[prevIndex(swap_index_r)], queue_[swap_index_r]);
             
@@ -594,7 +614,14 @@ public:
             rollback_counter_++;
             setUnprocessedSign(false);
             setUnprocessedStart(swap_index_r);
+            
         }
+        
+        if(swap_index_r != swap_index_l){
+            return true;
+        }
+        // std::cout<<"swap index after"<<swap_index_r<<std::endl;
+        return false;
 
         
     }
@@ -603,18 +630,17 @@ public:
     /// @brief returns previous valid unproceesed event
     /// @return 
     T getPreviousUnprocessedEvent(){
-        T element;
-        if(getUnprocessedSign())
-            return element;
-        else{
-            //this is called after a dequeue so we need it to go before it
-            uint16_t index=prevIndex(getUnprocessedStart());
-            do{
-                    element=queue_[prevIndex(index)].getData();
-                index=prevIndex(index);
-            }while(!queue_[prevIndex(index)].isValid() && prevIndex(getActiveStart())!=prevIndex(index)); // this can be Infinite if all elements are invalid
-            return element;
-        }
+        T element = nullptr;
+        
+        //this is called after a dequeue so we need it to go before it
+        uint16_t index=prevIndex(getUnprocessedStart());
+        // element=queue_[index].getData();
+        do{
+                element=queue_[prevIndex(index)].getData();
+            index=prevIndex(index);
+        }while(!queue_[prevIndex(index)].isValid() && prevIndex(getActiveStart())!=prevIndex(index)); // this can be Infinite if all elements are invalid
+        return element;
+        
     }
 
     /// need a -ve comparator

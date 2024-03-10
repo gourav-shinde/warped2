@@ -15,7 +15,7 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
     num_of_lps_         = num_of_lps;
     num_of_schedulers_  = lps.size();
     is_lp_migration_on_ = is_lp_migration_on;
-#ifdef UNIFIED_QUEUE
+
     for (unsigned int scheduler_id = 0; scheduler_id < lps.size(); scheduler_id++) {
         for (unsigned int lp_id = 0; lp_id < lps[scheduler_id].size(); lp_id++) {
             unified_queue_.push_back(make_unique<UnifiedQueue<std::shared_ptr<Event>, compareEvents, compareNegativeEvent>>());
@@ -23,27 +23,6 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
             input_queue_scheduler_map_.push_back(scheduler_id);
         }
     }
-    
-#else
-    /* Create the input and processed queues and their locks.
-       Also create the input queue-scheduler map and scheduled event pointer. */
-    input_queue_lock_ = make_unique<std::mutex []>(num_of_lps);
-    for (unsigned int scheduler_id = 0; scheduler_id < lps.size(); scheduler_id++) {
-        for (unsigned int lp_id = 0; lp_id < lps[scheduler_id].size(); lp_id++) {
-            input_queue_.push_back(
-                    make_unique<std::multiset<std::shared_ptr<Event>, compareEvents>>());
-            processed_queue_.push_back(make_unique<std::deque<std::shared_ptr<Event>>>());
-            scheduled_event_pointer_.push_back(nullptr);
-            input_queue_scheduler_map_.push_back(scheduler_id);
-        }
-    }
-#endif
-    
-#ifdef SCHEDULE_QUEUE_SPINLOCKS
-    schedule_queue_lock_ = make_unique<TicketLock []>(num_of_schedulers_);
-#else
-#endif
-
     
 
     /* Create the schedule queues */
@@ -65,18 +44,6 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
 
 
 
-#ifdef UNIFIED_QUEUE
-#else
-void TimeWarpEventSet::acquireInputQueueLock (unsigned int lp_id) {
-
-    input_queue_lock_[lp_id].lock();
-}
-
-void TimeWarpEventSet::releaseInputQueueLock (unsigned int lp_id) {
-
-    input_queue_lock_[lp_id].unlock();
-}
-#endif
 
 /*
  *  NOTE: caller must always have the input queue lock for the lp with id lp_id
@@ -86,59 +53,25 @@ void TimeWarpEventSet::releaseInputQueueLock (unsigned int lp_id) {
 InsertStatus TimeWarpEventSet::insertEvent (
                     unsigned int lp_id, std::shared_ptr<Event> event) {
 
-#ifdef UNIFIED_QUEUE
-    
+    auto ret = InsertStatus::Success;
+
     unified_queue_[lp_id]->enqueue(event);
     unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
-#else
-    // Always insert event into input queue
-    input_queue_[lp_id]->insert(event);
-    unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
-#endif
-    
+
     if (scheduled_event_pointer_[lp_id] == nullptr) {
         // If no event is currently scheduled. This can only happen if the thread that handles
         // events for lp with id == lp_id has determined that there are no more events left in
         // its input queue
-#ifdef UNIFIED_QUEUE
-#else
-        assert(input_queue_[lp_id]->size() == 1);
-#endif
+
+        // assert(unified_queue_[lp_id]->size() == 1);
+
         
         schedule_queue_[scheduler_id]->insert(event);
         
         scheduled_event_pointer_[lp_id] = event;
-        return InsertStatus::StarvedObject;
-    }
-#ifdef UNIFIED_QUEUE
-    
-#else
-    auto smallest_event = *input_queue_[lp_id]->begin();
-     if (smallest_event == scheduled_event_pointer_[lp_id]) {
-        return InsertStatus::LpOnly;
+        ret = InsertStatus::StarvedObject;
     }
 
-    // If the pointer comparison of the smallest event does not match scheduled event, well
-    // that means we should update the schedule queue...
-    auto ret = InsertStatus::SchedEventSwapSuccess;
-    schedule_queue_lock_[scheduler_id].lock();
-#if defined(CIRCULAR_QUEUE)
-    if (schedule_queue_[scheduler_id]->deactivate(scheduled_event_pointer_[lp_id])) {
-#else
-    if (schedule_queue_[scheduler_id]->erase(scheduled_event_pointer_[lp_id])) {
-#endif
-        // ...but only if the event was successfully erased from the schedule queue. If it is
-        // not then the event is already being processed and a rollback will have to occur.
-        schedule_queue_[scheduler_id]->insert(smallest_event);
-        scheduled_event_pointer_[lp_id] = smallest_event;
-    } else {
-        ret = InsertStatus::SchedEventSwapFailure;
-    }
-    schedule_queue_lock_[scheduler_id].unlock();
-    return ret;
-#endif
-    //this is not default behavious correct this below return statements
-    auto ret = InsertStatus::SchedEventSwapSuccess;
     return ret;
    
 }
@@ -202,13 +135,12 @@ uint32_t TimeWarpEventSet::lowestTimestamp (unsigned int thread_id) {
  *  NOTE: caller must have the input queue lock for the lp with id lp_id
  */
 std::shared_ptr<Event> TimeWarpEventSet::lastProcessedEvent (unsigned int lp_id) {
-#ifdef UNIFIED_QUEUE
     return unified_queue_[lp_id]->getPreviousUnprocessedEvent();
-#else
-    return ((processed_queue_[lp_id]->size()) ? processed_queue_[lp_id]->back() : nullptr);
-#endif
 }
 
+bool TimeWarpEventSet::fixPos(unsigned int lp_id){
+    return unified_queue_[lp_id]->fixPosition();
+}
 /*
  *  NOTE: caller must have the input queue lock for the lp with id lp_id
  */
@@ -222,7 +154,7 @@ void TimeWarpEventSet::rollback (unsigned int lp_id, std::shared_ptr<Event> stra
     // std::cout<<"fixposition called\n";
     // std::cout<<"LPID: "<<lp_id<<"\n";
     // unified_queue_[lp_id]->debug();
-    unified_queue_[lp_id]->fixPosition(); //the data for this function is locally asseciable in the queue
+    // unified_queue_[lp_id]->fixPosition(); //the data for this function is locally asseciable in the queue
     
     //invalidate the -ve event in the unified queue
     if(straggler_event->event_type_ == EventType::NEGATIVE){
@@ -239,6 +171,7 @@ void TimeWarpEventSet::rollback (unsigned int lp_id, std::shared_ptr<Event> stra
         }
         else{
             std::cout<<"ERROR: negative event not in correct order\n";
+            unified_queue_[lp_id]->debug(true, 10);
             abort();
         }
     }

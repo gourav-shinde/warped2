@@ -26,6 +26,7 @@
 namespace warped {
 
 enum class InsertStatus {
+    Success,
     LpOnly,
     StarvedObject,
     SchedEventSwapSuccess,
@@ -77,7 +78,7 @@ public:
 
     //standard done
     void printEvent (std::shared_ptr<Event> event);
-
+    bool fixPos(unsigned int lp_id);
     //this is done
     unsigned int fossilCollect (unsigned int fossil_collect_time, unsigned int lp_id);
 

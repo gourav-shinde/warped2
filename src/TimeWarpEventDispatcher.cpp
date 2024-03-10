@@ -218,10 +218,10 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
             //      1. We get an event that is strictly less than the last processed event.
             //      2. We get an event that is equal to the last processed event and is negative.
 
-            if (last_processed_event &&
-                    ((*event < *last_processed_event) ||
-                        ((*event == *last_processed_event) &&
-                         (event->event_type_ == EventType::NEGATIVE)))) {
+
+            //force call fix position
+            bool isRollback = event_set_->fixPos(current_lp_id);
+            if (isRollback) {
                 rollback(event);
 
             }
@@ -315,7 +315,7 @@ void TimeWarpEventDispatcher::receiveEventMessage(std::unique_ptr<TimeWarpKernel
 void TimeWarpEventDispatcher::sendEvents(std::shared_ptr<Event> source_event,
     std::vector<std::shared_ptr<Event>> new_events, unsigned int sender_lp_id,
     LogicalProcess *sender_lp) {
-    std::cout<<"sending events\n";
+    // std::cout<<"sending events\n";
 
     for (auto& e: new_events) {
 
