@@ -3,11 +3,50 @@
 
 #include <memory> // for shared_ptr
 #include <mutex>
+#include <iostream>
+#include <vector>
+#include <queue>
 
 #include "TimeWarpEventDispatcher.hpp"
 #include "TimeWarpKernelMessage.hpp"
 
 namespace warped {
+
+class MinQueue {
+private:
+    std::priority_queue<uint32_t, std::vector<uint32_t>, std::greater<uint32_t>> pq; // Using min-heap for ascending order
+    uint32_t maxSize;
+
+public:
+    MinQueue(uint32_t size = 10) : maxSize(size) {
+        push(0);//Initialize the queue with 0
+    }
+
+    void push(uint32_t item) {
+        if (pq.size() < maxSize) {
+            std::cout<<"Pushing "<<item<<" to the queue\n";
+            pq.push(item);
+        } else {
+            if (item > pq.top()) {
+                pq.pop();
+                pq.push(item);
+            }
+        }
+    }
+
+    uint32_t getGVT() {
+        uint32_t minElement = pq.top();
+        return minElement;
+    }
+
+    uint32_t size() {
+        return pq.size();
+    }
+
+    uint32_t isFull() {
+        return pq.size() == maxSize;
+    }
+};
 
 enum class GVTState { IDLE, LOCAL, GLOBAL };
 enum class Color { WHITE, RED };
@@ -42,13 +81,13 @@ public:
 
     virtual int64_t getMessageCount() = 0;
 
-    unsigned int getGVT() { return gVT_; }
+    unsigned int getGVT() { return gvT_.getGVT(); }
 
 protected:
     const std::shared_ptr<TimeWarpCommunicationManager> comm_manager_;
 
     unsigned int gVT_ = 0;
-
+    MinQueue gvT_;
     std::chrono::time_point<std::chrono::steady_clock> gvt_start;
 
     std::chrono::time_point<std::chrono::steady_clock> gvt_stop;
