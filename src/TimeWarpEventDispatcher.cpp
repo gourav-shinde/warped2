@@ -220,15 +220,15 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
 
 
             //force call fix position
-            bool rollback_condition = event_set_->fixPos(lp_id);
+            bool rollback_condition = event_set_->fixPos(current_lp_id);
             if (rollback_condition) {
                 rollback(event);
             }
 
             // Check to see if event is NEGATIVE and cancel
             if (event->event_type_ == EventType::NEGATIVE) {
-                
-                event_set_->startScheduling(current_lp_id);
+                event_set_->replenishScheduler(current_lp_id);
+                // event_set_->startScheduling(current_lp_id);
                 tw_stats_->upCount(CANCELLED_EVENTS, thread_id);
                 continue;
 
