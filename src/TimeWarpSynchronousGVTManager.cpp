@@ -11,7 +11,7 @@ enum class Color;
 
 void TimeWarpSynchronousGVTManager::initialize() {
     pthread_barrier_init(&gvt_barrier1_, NULL, num_worker_threads_+1);
-    pthread_barrier_init(&gvt_barrier2_, NULL, num_worker_threads_+2);
+    pthread_barrier_init(&gvt_barrier2_, NULL, num_worker_threads_+1);
     pthread_barrier_init(&gvt_barrier3_, NULL, num_worker_threads_+1);
 
     local_min_ = make_unique<unsigned int []>(num_worker_threads_+1);

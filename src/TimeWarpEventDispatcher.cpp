@@ -220,26 +220,16 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
 
 
             //force call fix position
-            if (last_processed_event &&
-                    ((*event < *last_processed_event) ||
-                        ((*event == *last_processed_event) &&
-                         (event->event_type_ == EventType::NEGATIVE)))) {
+            bool rollback_condition = event_set_->fixPos(lp_id);
+            if (rollback_condition) {
                 rollback(event);
             }
 
             // Check to see if event is NEGATIVE and cancel
             if (event->event_type_ == EventType::NEGATIVE) {
-                // std::cout<<"cancelling -ve event\n";
-                bool found = true; //becoz we already canceled the event in rollback call
-                // bool found = event_set_->cancelEvent(current_lp_id, event);
-
-
-                if (found) {
-                    tw_stats_->upCount(CANCELLED_EVENTS, thread_id);
-
-                }
-
-
+                
+                event_set_->startScheduling(current_lp_id);
+                tw_stats_->upCount(CANCELLED_EVENTS, thread_id);
                 continue;
 
 
