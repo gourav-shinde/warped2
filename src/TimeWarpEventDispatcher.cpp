@@ -220,10 +220,11 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
 
 
             //force call fix position
-            bool isRollback = event_set_->fixPos(current_lp_id);
-            if (isRollback) {
+            if (last_processed_event &&
+                    ((*event < *last_processed_event) ||
+                        ((*event == *last_processed_event) &&
+                         (event->event_type_ == EventType::NEGATIVE)))) {
                 rollback(event);
-
             }
 
             // Check to see if event is NEGATIVE and cancel

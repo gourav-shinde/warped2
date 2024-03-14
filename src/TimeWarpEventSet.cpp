@@ -154,7 +154,7 @@ void TimeWarpEventSet::rollback (unsigned int lp_id, std::shared_ptr<Event> stra
     // std::cout<<"fixposition called\n";
     // std::cout<<"LPID: "<<lp_id<<"\n";
     // unified_queue_[lp_id]->debug();
-    // unified_queue_[lp_id]->fixPosition(); //the data for this function is locally asseciable in the queue
+    unified_queue_[lp_id]->fixPosition(); //the data for this function is locally asseciable in the queue
     
     //invalidate the -ve event in the unified queue
     if(straggler_event->event_type_ == EventType::NEGATIVE){
