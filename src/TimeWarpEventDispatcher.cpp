@@ -227,8 +227,8 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
 
             // Check to see if event is NEGATIVE and cancel
             if (event->event_type_ == EventType::NEGATIVE) {
-                event_set_->replenishScheduler(current_lp_id);
-                // event_set_->startScheduling(current_lp_id);
+                // event_set_->replenishScheduler(current_lp_id);
+                event_set_->startScheduling(current_lp_id);
                 tw_stats_->upCount(CANCELLED_EVENTS, thread_id);
                 continue;
 
@@ -252,6 +252,7 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
             gvt = gvt_manager_->getGVT();
             // std::cout<<"gvt: "<<gvt<<std::endl;
             if (gvt > current_lp->last_fossil_collect_gvt_) {
+                event_set_->resetThreadMin(thread_id);
                 current_lp->last_fossil_collect_gvt_ = gvt;
 
                 // Fossil collect all queues for this lp
@@ -342,7 +343,7 @@ void TimeWarpEventDispatcher::sendLocalEvent(std::shared_ptr<Event> event) {
     // NOTE: Event is assumed to be less than the maximum simulation time.
 
 #ifdef UNIFIED_QUEUE
-    auto status = event_set_->insertEvent(receiver_lp_id, event);
+    auto status = event_set_->insertEvent(receiver_lp_id, event, thread_id);
 #else
     event_set_->acquireInputQueueLock(receiver_lp_id);
     auto status = event_set_->insertEvent(receiver_lp_id, event);

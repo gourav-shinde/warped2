@@ -52,7 +52,7 @@ public:
     void releaseInputQueueLock (unsigned int lp_id);
 #endif
 
-    InsertStatus insertEvent (unsigned int lp_id, std::shared_ptr<Event> event);
+    InsertStatus insertEvent (unsigned int lp_id, std::shared_ptr<Event> event, uint32_t thread_id);
 
     std::shared_ptr<Event> getEvent (unsigned int thread_id);
 
@@ -78,6 +78,8 @@ public:
 
     //standard done
     void printEvent (std::shared_ptr<Event> event);
+
+    void resetThreadMin(unsigned int thread_id);
     bool fixPos(unsigned int lp_id);
     //this is done
     unsigned int fossilCollect (unsigned int fossil_collect_time, unsigned int lp_id);
@@ -140,6 +142,8 @@ private:
 
     // Event scheduled from all lps
     std::vector<std::shared_ptr<Event>> scheduled_event_pointer_;
+
+    std::vector<std::tuple<unsigned int, unsigned int, unsigned int>> schedule_cycle_;
 };
 
 } // warped namespace

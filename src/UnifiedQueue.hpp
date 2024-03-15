@@ -3,7 +3,7 @@
 #include <vector>
 #include <cmath>
 #include <stdexcept>
-
+#include "Event.hpp"
 
 #include <chrono>
 #include <thread>
@@ -58,25 +58,26 @@ private:
     //create variable for shifts too
 
     //define masks
-    std::atomic<uint32_t> enqueue_counter_ = 0;
-    std::atomic<uint32_t> dequeue_counter_ = 0;
-    std::atomic<uint32_t> rollback_counter_ = 0;
-    std::atomic<uint32_t> rollback_function_counter_ = 0;
-    const uint32_t freeStartMask_ = 0x000003FF;
-    const uint32_t freeSignMask_ = 0x00000400;
-    const uint32_t unprocessedStartMask_ = 0x001FF800;
-    const uint32_t unprocessedSignMask_ = 0x00200000;
-    const uint32_t activeStartMask_ = 0xFFC00000;
-    const uint32_t unprocessedStartShift_ = 11;
-    const uint32_t activeStartShift_ = 22;
+    std::atomic<uint64_t> enqueue_counter_ = 0;
+    std::atomic<uint64_t> dequeue_counter_ = 0;
+    std::atomic<uint64_t> rollback_counter_ = 0;
+    std::atomic<uint64_t> rollback_function_counter_ = 0;
+    std::atomic<uint64_t> invalid_counter_ = 0;
+    const uint64_t freeStartMask_ = 0x000000000000FFFF;
+    const uint64_t freeSignMask_ = 0x0000000000010000;
+    const uint64_t unprocessedStartMask_ = 0x00000001FFFE0000;
+    const uint64_t unprocessedSignMask_ = 0x0000000200000000;
+    const uint64_t activeStartMask_ = 0x0003FFFC00000000;
+    const uint64_t unprocessedStartShift_ = 17;
+    const uint64_t activeStartShift_ = 34;
 
-    std::atomic<uint32_t> marker_; //test with this datatype
+    std::atomic<uint64_t> marker_; //test with this datatype
     comparator compare_; //currently not  used, as we are not sorting anymore
     negativeCounterPart negativeCounterPart_; //used to find negative counterpart
     
 public:
-    UnifiedQueue(uint16_t capacity=1024){
-        if(capacity > 1024){
+    UnifiedQueue(uint16_t capacity=5000){
+        if(capacity > 5000){
             throw std::invalid_argument("Capacity should be less than 1024");
         }
         queue_.resize(capacity); 
@@ -93,17 +94,17 @@ public:
     }
 
     //getActiveStart
-    uint32_t getActiveStart(){
+    uint64_t getActiveStart(){
         return (marker_.load(std::memory_order_relaxed) & activeStartMask_) >> activeStartShift_;
     }
 
     //getUnprocessedStart
-    uint32_t getUnprocessedStart(){
+    uint64_t getUnprocessedStart(){
         return (marker_.load(std::memory_order_relaxed) & unprocessedStartMask_) >> unprocessedStartShift_;
     }
 
     //getFreeStart
-    uint32_t getFreeStart(){
+    uint64_t getFreeStart(){
         return (marker_.load(std::memory_order_relaxed) & freeStartMask_);
     }
 
@@ -127,40 +128,40 @@ public:
     }
 
     //setActiveStart
-    void setActiveStart(uint32_t start){
+    void setActiveStart(uint64_t start){
         marker_ &= ~activeStartMask_;
         marker_ |= (start << activeStartShift_);
     }
 
     //setUnprocessedStart
-    void setUnprocessedStart(uint32_t start){
+    void setUnprocessedStart(uint64_t start){
         marker_ &= ~unprocessedStartMask_;
         marker_ |= (start << unprocessedStartShift_);
     }
 
     //setFreeStart
-    void setFreeStart(uint32_t start){
+    void setFreeStart(uint64_t start){
         marker_ &= ~freeStartMask_;
         marker_ |= start;
     }
 
     //getCapacity
-    uint32_t capacity(){
+    uint64_t capacity(){
         return queue_.size();
     }
 
     //preIndex
-    uint32_t prevIndex(uint32_t index){
+    uint64_t prevIndex(uint64_t index){
         return (index + capacity() - 1) % capacity();
     }
 
     //nextIndex
-    uint32_t nextIndex(uint32_t index){
+    uint64_t nextIndex(uint64_t index){
         return (index + 1) % capacity();
     }
 
     bool isEmpty(){
-        uint32_t marker = marker_.load(std::memory_order_relaxed);
+        uint64_t marker = marker_.load(std::memory_order_relaxed);
         if(!FreeSign(marker) && ActiveStart(marker) == FreeStart(marker))
             return true;
         return false;
@@ -186,7 +187,7 @@ public:
         return INT16_MAX;// some other condition i do not know of
     }
 
-    void debug(bool debug = false, uint32_t range = 0){
+    void debug(bool debug = false, uint64_t range = 0){
         //print marker_ in hexcode
         // std::cout << "marker_: " << std::hex << marker_.load(std::memory_order_relaxed) << std::endl;
         std::cout << "activeStart: " << getActiveStart();
@@ -213,58 +214,76 @@ public:
         // std::cout << std::endl;
 
         if(debug){
-            uint32_t i = getUnprocessedStart();
-            for(uint32_t j=0;j<range;j++){
+            uint64_t i = getUnprocessedStart();
+            for(uint64_t j=0;j<range;j++){
                 i = prevIndex(i);
             }
-            for(uint32_t j=0;j<range*2;j++){
+            for(uint64_t j=0;j<range*2;j++){
                 std::cout <<"("<<i<<",";
                 if(!queue_[i].isValid())
                     std::cout<<"-";
+                if(queue_[i].getData()->event_type_ == warped::EventType::POSITIVE){
+                    std::cout<<"+";
+                }
                 std::cout<<queue_[i].getData()->timestamp() << ")";
                 i = nextIndex(i);
                 if(i == getFreeStart()){
                     break;
                 }
+                i++;
             }
             std::cout << std::endl;
+        }
+        else{
+            for (auto itr : queue_) {
+                std::cout<<"(";
+                if(!itr.isValid())
+                    std::cout<<"-";
+                if(itr.getData()->event_type_ == warped::EventType::POSITIVE){
+                    std::cout<<"+";
+                }
+                if(itr.getData() != nullptr)
+                    std::cout<<itr.getData()->timestamp() << ")";
+                else
+                    std::cout<<"-)";
+            }
         }
          
     }
 
     //getValues from Marker
     
-    uint32_t ActiveStart(uint32_t marker){
-        uint32_t activeStart = (marker & activeStartMask_) >> activeStartShift_;
+    uint64_t ActiveStart(uint64_t marker){
+        uint64_t activeStart = (marker & activeStartMask_) >> activeStartShift_;
         return activeStart;
     }
 
-    bool UnProcessedSign(uint32_t marker){
+    bool UnProcessedSign(uint64_t marker){
         return (marker & unprocessedSignMask_) ? true : false;
     }
 
-    bool FreeSign(uint32_t marker){
+    bool FreeSign(uint64_t marker){
         return (marker & freeSignMask_) ? true : false;
     }
 
-    uint32_t UnprocessedStart(uint32_t marker){
+    uint64_t UnprocessedStart(uint64_t marker){
         return (marker & unprocessedStartMask_) >> unprocessedStartShift_;
     }
 
-    uint32_t FreeStart(uint32_t marker){
+    uint64_t FreeStart(uint64_t marker){
         return (marker & freeStartMask_);
     }
 
     //setValues for Marker
 
     //setFreeStart
-    void setFreeStartMarker(uint32_t &marker, uint32_t start){
+    void setFreeStartMarker(uint64_t &marker, uint64_t start){
         marker &= ~freeStartMask_;
         marker |= start;
     }
 
     //setfreeSign
-    void setFreeSignMarker(uint32_t &marker, bool sign){
+    void setFreeSignMarker(uint64_t &marker, bool sign){
         if(sign){
             marker |= freeSignMask_;
         }else{
@@ -273,7 +292,7 @@ public:
     }
 
     //setunprocessedSign
-    void setUnprocessedSignMarker(uint32_t &marker, bool sign){
+    void setUnprocessedSignMarker(uint64_t &marker, bool sign){
         if(sign){
             marker |= unprocessedSignMask_;
         }else{
@@ -282,13 +301,13 @@ public:
     }
 
     //setActiveStart
-    void setActiveStartMarker(uint32_t &marker, uint32_t start){
+    void setActiveStartMarker(uint64_t &marker, uint64_t start){
         marker &= ~activeStartMask_;
         marker |= (start << activeStartShift_);
     }
 
     //setUnprocessedStart
-    void setUnprocessedStartMarker(uint32_t &marker, uint32_t start){
+    void setUnprocessedStartMarker(uint64_t &marker, uint64_t start){
         marker &= ~unprocessedStartMask_;
         marker |= (start << unprocessedStartShift_);
     }
@@ -297,8 +316,8 @@ public:
 
     //no checks for valid indexes is made here as it should be done by the caller
 
-    uint32_t binarySearch(T element, uint32_t low, uint32_t high){
-        uint32_t mid;
+    uint64_t binarySearch(T element, uint64_t low, uint64_t high){
+        uint64_t mid;
 
         // This will never trigger, as this condition is checked in the parent function
         // if (isEmpty())
@@ -322,7 +341,7 @@ public:
     //low: activeStart_
     //high: freeStart_
 
-    uint32_t findInsertPosition(T element, uint32_t low, uint32_t high){
+    uint64_t findInsertPosition(T element, uint64_t low, uint64_t high){
         
         //This will never trigger, as this condition is checked in the parent function
         // if (isEmpty())
@@ -347,8 +366,8 @@ public:
     //shift elements from start to end by 1 position to the right
     //no checks for valid indexes is made here as it should be done by the caller
     //Discuss this as it will have ABA problem across threads
-    void shiftElements(uint32_t start, uint32_t end) {
-        uint32_t i = end;
+    void shiftElements(uint64_t start, uint64_t end) {
+        uint64_t i = end;
         while (i != start) {
             queue_[i] = queue_[prevIndex(i)];
             i = prevIndex(i);
@@ -370,11 +389,12 @@ public:
                 std::cout<<"Dequeue Counter: "<<dequeue_counter_<<std::endl;
                 std::cout<<"Rollback Counter: "<<rollback_counter_<<std::endl;
                 std::cout<<"Rollback Function Counter: "<<rollback_function_counter_<<std::endl;
+                std::cout<<"Invalid Counter: "<<invalid_counter_<<std::endl;
                 abort();
             }
 
-            uint32_t marker = marker_.load(std::memory_order_relaxed);
-            uint32_t markerCopy = marker;
+            uint64_t marker = marker_.load(std::memory_order_relaxed);
+            uint64_t markerCopy = marker;
             if(nextIndex(FreeStart(marker)) == ActiveStart(marker)){//queue will become full after this insert
                 //set freeSign_ to 1
                 setFreeSignMarker(marker,1);
@@ -437,8 +457,8 @@ public:
                 return T();
             }
 
-            uint32_t marker = marker_.load(std::memory_order_relaxed);
-            uint32_t markerCopy = marker;
+            uint64_t marker = marker_.load(std::memory_order_relaxed);
+            uint64_t markerCopy = marker;
             if(nextIndex(UnprocessedStart(marker)) == FreeStart(marker)){
                 //set unprocessedSign_ to 1
                 setUnprocessedSignMarker(marker, 1);
@@ -471,11 +491,11 @@ public:
         
     }
 
-    T getValue(uint32_t index){
+    T getValue(uint64_t index){
         return queue_[index].getData();
     }
 
-    bool isDataValid(uint32_t index){
+    bool isDataValid(uint64_t index){
         return queue_[index].isValid();
     }
 
@@ -495,8 +515,8 @@ public:
                 std::cout << "Active Zone is Empty" << std::endl;
                 return false;
             }
-            uint32_t marker = marker_.load(std::memory_order_relaxed);
-            uint32_t markerCopy = marker;
+            uint64_t marker = marker_.load(std::memory_order_relaxed);
+            uint64_t markerCopy = marker;
             setFreeSignMarker(marker, 0);
             setActiveStartMarker(marker, nextIndex(ActiveStart(marker)));
             #ifdef GTEST_FOUND
@@ -540,8 +560,8 @@ public:
                 return NOTFOUND;
             }
             
-            uint32_t marker = marker_.load(std::memory_order_relaxed);
-            uint32_t markerCopy = marker;
+            uint64_t marker = marker_.load(std::memory_order_relaxed);
+            uint64_t markerCopy = marker;
             
             #ifdef GTEST_FOUND
                 std::cout<<"increamentActiveStart called "<<std::endl;
@@ -593,8 +613,8 @@ public:
             return false;
         }
 
-        uint32_t marker = marker_.load(std::memory_order_relaxed);
-        uint32_t activeStart = ActiveStart(marker);
+        uint64_t marker = marker_.load(std::memory_order_relaxed);
+        uint64_t activeStart = ActiveStart(marker);
 
 #ifdef GTEST_FOUND
         std::cout << "Fixposition called " << std::endl;
@@ -660,8 +680,8 @@ public:
                 return NOTFOUND;
             }
             
-            uint32_t marker = marker_.load(std::memory_order_relaxed);
-            uint32_t markerCopy = marker;
+            uint64_t marker = marker_.load(std::memory_order_relaxed);
+            uint64_t markerCopy = marker;
             
             #ifdef GTEST_FOUND
                 std::cout<<"increamentActiveStart called "<<std::endl;
@@ -708,7 +728,7 @@ public:
 
     //invalids the data at unprocessedStart
     bool invalidNegative(){
-        uint32_t marker = marker_.load(std::memory_order_relaxed);
+        uint64_t marker = marker_.load(std::memory_order_relaxed);
         if(!UnProcessedSign(marker)){
             queue_[UnprocessedStart(marker)].invalidate();
             return true;
@@ -718,7 +738,8 @@ public:
     }
 
     //invalids the data at index
-    void invalidateIndex(uint32_t index){
+    void invalidateIndex(uint64_t index){
+        invalid_counter_++;
         queue_[index].invalidate();
     }
 

@@ -39,10 +39,18 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
 #endif
     }
 
+    /* Create the data structure for holding the lowest event timestamp */
+    for (unsigned int i = 0; i < num_of_worker_threads; i++) {
+        schedule_cycle_.push_back(std::make_tuple(0, (unsigned int)-1, 0));
+    }
     
 }
 
-
+void TimeWarpEventSet::resetThreadMin(unsigned int thread_id) {
+    std::get<0>(schedule_cycle_[thread_id]) = 0;
+    std::get<1>(schedule_cycle_[thread_id]) = (unsigned int)-1;
+    std::get<2>(schedule_cycle_[thread_id]) = 0;
+}
 
 
 /*
@@ -51,11 +59,14 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
  *  NOTE: scheduled_event_pointer is also protected by the input queue lock
  */
 InsertStatus TimeWarpEventSet::insertEvent (
-                    unsigned int lp_id, std::shared_ptr<Event> event) {
+                    unsigned int lp_id, std::shared_ptr<Event> event, uint32_t thread_id) {
 
     auto ret = InsertStatus::Success;
 
     unified_queue_[lp_id]->enqueue(event);
+    std::get<1>(schedule_cycle_[thread_id]) =
+                std::min(   std::get<1>(schedule_cycle_[thread_id]),
+                            event->timestamp() );
     unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
 
     if (scheduled_event_pointer_[lp_id] == nullptr) {
@@ -101,6 +112,9 @@ std::shared_ptr<Event> TimeWarpEventSet::getEvent (unsigned int thread_id) {
                     *event_iterator : nullptr;
     if (event != nullptr) {
         schedule_queue_[thread_id]->erase(event_iterator);
+        std::get<1>(schedule_cycle_[thread_id]) =
+                std::min(   std::get<1>(schedule_cycle_[thread_id]),
+                            event->timestamp() );
     }
 #endif
 
@@ -118,16 +132,8 @@ std::shared_ptr<Event> TimeWarpEventSet::getEvent (unsigned int thread_id) {
 
 
 uint32_t TimeWarpEventSet::lowestTimestamp (unsigned int thread_id) {
-    if (schedule_queue_[thread_id] == nullptr || schedule_queue_[thread_id]->empty()) {
-        return INT32_MAX;
-    }
-
-    auto event = *schedule_queue_[thread_id]->begin();
-    if (event == nullptr) {
-        return INT32_MAX;
-    }
-
-    return event->timestamp();
+     return std::min(    std::get<2>(schedule_cycle_[thread_id]),
+                        std::get<1>(schedule_cycle_[thread_id])     );
 }
 
 
