@@ -272,7 +272,9 @@ void TimeWarpEventSet::startScheduling (unsigned int lp_id) {
     if (!unified_queue_[lp_id]->getUnprocessedSign()) {
         scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
         unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
-        schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
+        if(scheduled_event_pointer_[lp_id] != nullptr)
+            schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
+
     } else {
         scheduled_event_pointer_[lp_id] = nullptr;
     }
@@ -346,8 +348,8 @@ void TimeWarpEventSet::replenishScheduler (unsigned int lp_id) {
     // NOTE: A pointer to the scheduled event will remain in the input queue
     if (!unified_queue_[lp_id]->getUnprocessedSign()) {
         scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
-        
-        schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
+        if(scheduled_event_pointer_[lp_id] != nullptr)
+            schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
         
     } else {
         scheduled_event_pointer_[lp_id] = nullptr;
@@ -443,6 +445,7 @@ unsigned int TimeWarpEventSet::fossilCollect (unsigned int fossil_collect_time, 
                 count++;
             }
         }
+        return count;
     }
 
     //normal, do fossile collection until events smaller than equal to fossil-collection-time
