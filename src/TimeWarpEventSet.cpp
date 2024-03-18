@@ -438,7 +438,11 @@ unsigned int TimeWarpEventSet::fossilCollect (unsigned int fossil_collect_time, 
     if (fossil_collect_time == (unsigned int)-1) {
         uint32_t activeStart = unified_queue_[lp_id]->getActiveStart();
         uint32_t unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
-        while(activeStart != unProcessedStart){
+        uint32_t freeStart = unified_queue_[lp_id]->getFreeStart();
+        if(unProcessedStart != freeStart){
+            std::cerr<<"ERROR: unProcessedStart != freeStart at termination\n";
+        }
+        while(activeStart != unProcessedStart ){
             unified_queue_[lp_id]->getValue(activeStart).reset();
             activeStart++;
             if(unified_queue_[lp_id]->isDataValid(activeStart)){
