@@ -40,18 +40,32 @@ void TimeWarpEventSet::initialize (const std::vector<std::vector<LogicalProcess*
     }
 
     /* Create the data structure for holding the lowest event timestamp */
-    for (unsigned int i = 0; i < num_of_worker_threads; i++) {
-        schedule_cycle_.push_back(std::make_tuple(0, (unsigned int)-1, 0));
+    
+    for (unsigned int i = 0; i <= num_of_worker_threads; i++) {
+        //zero is not used as its main thread
+        schedule_cycle_.push_back(std::make_shared<ThreadMin>(INT32_MAX, INT32_MAX));
     }
     
 }
 
 void TimeWarpEventSet::resetThreadMin(unsigned int thread_id) {
-    std::get<0>(schedule_cycle_[thread_id]) = 0;
-    std::get<1>(schedule_cycle_[thread_id]) = (unsigned int)-1;
-    std::get<2>(schedule_cycle_[thread_id]) = 0;
+    schedule_cycle_[thread_id]->min.store(schedule_cycle_[thread_id]->second_min);
+    schedule_cycle_[thread_id]->second_min.store(std::numeric_limits<uint32_t>::max());
 }
 
+void TimeWarpEventSet::reportEvent(std::shared_ptr<Event> event, uint16_t thread_id) {
+    // std::cout<<thread_id<<"\n";
+    // assert(event!= nullptr);
+    // assert(schedule_cycle_[thread_id] != nullptr);
+    
+    if(event->timestamp() < schedule_cycle_[thread_id]->min){
+        schedule_cycle_[thread_id]->second_min.store(schedule_cycle_[thread_id]->min);
+        schedule_cycle_[thread_id]->min.store(event->timestamp());
+    }
+    else if(event->timestamp() < schedule_cycle_[thread_id]->second_min){
+        schedule_cycle_[thread_id]->second_min.store(event->timestamp());
+    }
+}
 
 /*
  *  NOTE: caller must always have the input queue lock for the lp with id lp_id
@@ -64,9 +78,7 @@ InsertStatus TimeWarpEventSet::insertEvent (
     auto ret = InsertStatus::Success;
 
     unified_queue_[lp_id]->enqueue(event);
-    std::get<1>(schedule_cycle_[thread_id]) =
-                std::min(   std::get<1>(schedule_cycle_[thread_id]),
-                            event->timestamp() );
+    reportEvent(event, thread_id);
     unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
 
     if (scheduled_event_pointer_[lp_id] == nullptr) {
@@ -112,9 +124,7 @@ std::shared_ptr<Event> TimeWarpEventSet::getEvent (unsigned int thread_id) {
                     *event_iterator : nullptr;
     if (event != nullptr) {
         schedule_queue_[thread_id]->erase(event_iterator);
-        std::get<1>(schedule_cycle_[thread_id]) =
-                std::min(   std::get<1>(schedule_cycle_[thread_id]),
-                            event->timestamp() );
+        reportEvent(event, thread_id);
     }
 #endif
 
@@ -132,8 +142,7 @@ std::shared_ptr<Event> TimeWarpEventSet::getEvent (unsigned int thread_id) {
 
 
 uint32_t TimeWarpEventSet::lowestTimestamp (unsigned int thread_id) {
-     return std::min(    std::get<2>(schedule_cycle_[thread_id]),
-                        std::get<1>(schedule_cycle_[thread_id])     );
+     return schedule_cycle_[thread_id]->min.load();
 }
 
 

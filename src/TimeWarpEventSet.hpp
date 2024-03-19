@@ -33,6 +33,15 @@ enum class InsertStatus {
     SchedEventSwapFailure
 };
 
+struct ThreadMin {
+    std::atomic<uint32_t> min;
+    std::atomic<uint32_t> second_min;
+    //define constructors
+    ThreadMin(){ };
+    ThreadMin(uint32_t min, uint32_t second_min) : min(min), second_min(second_min) { };
+    
+};
+
 //combine process queue and input queue.
 
 class TimeWarpEventSet {
@@ -79,6 +88,8 @@ public:
     //standard done
     void printEvent (std::shared_ptr<Event> event);
 
+    //reports event to calculate min timestamp
+    void reportEvent (std::shared_ptr<Event> event, uint16_t thread_id);
     void resetThreadMin(unsigned int thread_id);
     bool fixPos(unsigned int lp_id);
     //this is done
@@ -143,7 +154,14 @@ private:
     // Event scheduled from all lps
     std::vector<std::shared_ptr<Event>> scheduled_event_pointer_;
 
-    std::vector<std::tuple<unsigned int, unsigned int, unsigned int>> schedule_cycle_;
+    //first is thread min and second is second min,
+    //u report min to GVT and set second min to first min, then reset second min to infinity
+
+    
+
+    std::vector<std::shared_ptr<ThreadMin>> schedule_cycle_;
+
+    
 };
 
 } // warped namespace
