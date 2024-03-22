@@ -220,8 +220,12 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
 
 
             //force call fix position
-            bool rollback_condition = event_set_->fixPos(current_lp_id);
-            if (rollback_condition) {
+            // bool rollback_condition = event_set_->fixPos(current_lp_id);
+
+            if (last_processed_event &&
+                    ((*event < *last_processed_event) ||
+                        ((*event == *last_processed_event) &&
+                         (event->event_type_ == EventType::NEGATIVE)))){
                 rollback(event);
             }
 
@@ -430,7 +434,7 @@ void TimeWarpEventDispatcher::rollback(std::shared_ptr<Event> straggler_event) {
 
     //mark event after restore_state_event as Unprocessed
 #ifdef UNIFIED_QUEUE
-    event_set_->markUnprocessed(local_lp_id, restored_state_event);
+    // event_set_->markUnprocessed(local_lp_id, restored_state_event);
 #endif
     // then do coast forwarding until u reach staggler event
 
@@ -453,35 +457,19 @@ void TimeWarpEventDispatcher::coastForward(std::shared_ptr<Event> straggler_even
     auto events = event_set_->getEventsForCoastForward(current_lp_id, straggler_event,
         restored_state_event);
 
-#ifdef UNIFIED_QUEUE
-    
+
      // NOTE: events are in order from LARGEST to SMALLEST, so reprocess backwards
     // std::cout<<"Coast Forwarding Events: "<<events->size()<<std::endl;
-    for (auto itr: *events) {
-        assert(*itr <= *straggler_event);
+    for (auto event_itr = events->rbegin(); event_itr != events->rend(); ++event_itr) {
+        assert(**event_itr <= *straggler_event);
         // This just updates state, ignore new events
         // std::cout << "Coast Forwarding Event: " << itr->timestamp() << std::endl;
-        lp->receiveEvent(*itr);
+        lp->receiveEvent(**event_itr);
         tw_stats_->upCount(COAST_FORWARDED_EVENTS, thread_id);
         // NOTE: Do not send any new events
         // NOTE: All coast forward events are already in processed queue, they were never removed.
     }
-#else
-    // NOTE: events are in order from LARGEST to SMALLEST, so reprocess backwards
-    for (auto event_riterator = events->rbegin();
-                    event_riterator != events->rend(); event_riterator++) {
 
-        assert(**event_riterator <= *straggler_event);
-
-        // This just updates state, ignore new events
-        lp->receiveEvent(**event_riterator);
-
-        tw_stats_->upCount(COAST_FORWARDED_EVENTS, thread_id);
-
-        // NOTE: Do not send any new events
-        // NOTE: All coast forward events are already in processed queue, they were never removed.
-    }
-#endif
 }
 
 void

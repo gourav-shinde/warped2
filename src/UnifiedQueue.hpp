@@ -74,6 +74,7 @@ private:
     std::atomic<uint64_t> marker_; //test with this datatype
     comparator compare_; //currently not  used, as we are not sorting anymore
     negativeCounterPart negativeCounterPart_; //used to find negative counterpart
+    std::mutex lock_;
     
 public:
     UnifiedQueue(uint16_t capacity=5000){
@@ -230,7 +231,6 @@ public:
                 if(i == getFreeStart()){
                     break;
                 }
-                i++;
             }
             std::cout << std::endl;
         }
@@ -343,9 +343,9 @@ public:
 
     uint64_t findInsertPosition(T element, uint64_t low, uint64_t high){
         
-        //This will never trigger, as this condition is checked in the parent function
-        // if (isEmpty())
-        //     return freeStart_.load(std::memory_order_relaxed);
+        if (low == high && getFreeSign() == 0){
+            return getUnprocessedStart();
+        }
 
         // when there is no rotation in queue
         if (low < high) {
@@ -375,8 +375,10 @@ public:
     }
 
     // we are not handling out of order elements in this queue.
-    bool enqueue(T element){
+    uint64_t enqueue(T element){
+        lock_.lock();
         enqueue_counter_++;
+        uint64_t insertPos = 0;
         bool success = false;
         while(!success){
             //checks first
@@ -389,12 +391,11 @@ public:
                 std::cout<<"Dequeue Counter: "<<dequeue_counter_<<std::endl;
                 std::cout<<"Rollback Counter: "<<rollback_counter_<<std::endl;
                 std::cout<<"Rollback Function Counter: "<<rollback_function_counter_<<std::endl;
-                std::cout<<"Invalid Counter: "<<invalid_counter_<<std::endl;
                 abort();
             }
 
-            uint64_t marker = marker_.load(std::memory_order_relaxed);
-            uint64_t markerCopy = marker;
+           uint64_t marker = marker_.load(std::memory_order_relaxed);
+           uint64_t markerCopy = marker;
             if(nextIndex(FreeStart(marker)) == ActiveStart(marker)){//queue will become full after this insert
                 //set freeSign_ to 1
                 setFreeSignMarker(marker,1);
@@ -410,31 +411,33 @@ public:
             #endif
             
             //make sure marker doesnt change for doing 1+1 operation using compare and swap
-        
+            
             while (marker_.compare_exchange_weak(
                     markerCopy, marker,
                     std::memory_order_release, std::memory_order_relaxed)){
                 //FOR OUT OF ORDER LOGIC
-                // if(!FreeSign(marker) && ActiveStart(marker) == FreeStart(marker)){//queue is empty
-                //     queue_[ActiveStart(markerCopy)] = element;
-                // }
-                // else{
-                //     int insertPos = findInsertPosition(element, ActiveStart(markerCopy), FreeStart(markerCopy));
-                //     shiftElements(insertPos, FreeStart(markerCopy));
-                //     queue_[insertPos] = element;
-                // }
+                if(isEmpty()){//queue is empty
+                    queue_[UnprocessedStart(markerCopy)] = element;
+                    insertPos = UnprocessedStart(markerCopy);
+                }
+                else{
+                    insertPos = findInsertPosition(element, UnprocessedStart(markerCopy), FreeStart(markerCopy));
+                    shiftElements(insertPos, FreeStart(markerCopy));
+                    queue_[insertPos] = element;
+                }
                 #ifdef GTEST_FOUND
                    // std::cout<<"Inserted "<<element.receiveTime_<<" at "<<FreeStart(markerCopy)<<std::endl;  
                                 
                 #endif
-                queue_[FreeStart(markerCopy)] = Data(element);
+                // queue_[FreeStart(markerCopy)] = Data(element);
                 success = true;
             }
+            lock_.unlock();
         }
            
         
         // std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        return true;
+        return insertPos;
     }
 
 

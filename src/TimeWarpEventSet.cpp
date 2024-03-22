@@ -186,6 +186,7 @@ void TimeWarpEventSet::rollback (unsigned int lp_id, std::shared_ptr<Event> stra
         }
         else{
             std::cout<<"ERROR: negative event not in correct order\n";
+            std::cout<<straggler_event->timestamp()<<" is the event\n";
             unified_queue_[lp_id]->debug(true, 10);
             abort();
         }
@@ -230,35 +231,23 @@ std::unique_ptr<std::vector<std::shared_ptr<Event>>>
 
     // Create empty vector
     auto events = make_unique<std::vector<std::shared_ptr<Event>>>();
-#ifdef UNIFIED_QUEUE
     unused(restored_state_event);
-    uint32_t unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
-    uint32_t freeStart = unified_queue_[lp_id]->getFreeStart();
+    uint64_t unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
+    // uint32_t freeStart = unified_queue_[lp_id]->getFreeStart();
+    uint64_t activeStart = unified_queue_[lp_id]->getActiveStart();
+
     compareEvents compare;
-    while(compare(unified_queue_[lp_id]->getValue(unProcessedStart), straggler_event) && 
-            unProcessedStart != freeStart){
+    while(compare(restored_state_event, unified_queue_[lp_id]->getValue(unProcessedStart)) && 
+            unProcessedStart != activeStart){
         // unified_queue_[lp_id]->debug();
         // std::cout<<"unProcessedStart: "<<unProcessedStart<<"\n";
         if(unified_queue_[lp_id]->isDataValid(unProcessedStart)){
             events->push_back(unified_queue_[lp_id]->getValue(unProcessedStart));
         }
-        unProcessedStart = unified_queue_[lp_id]->nextIndex(unProcessedStart);
+        unProcessedStart = unified_queue_[lp_id]->prevIndex(unProcessedStart);
     }
-    //sets unprocessed Start back to staggler event
-    unified_queue_[lp_id]->setUnprocessedStart(unProcessedStart);
-#else
-    auto event_riterator = processed_queue_[lp_id]->rbegin();  // Starting with largest event
+    
 
-    while ((event_riterator != processed_queue_[lp_id]->rend()) && (**event_riterator > *restored_state_event)) {
-
-        assert(*event_riterator);
-        assert(**event_riterator < *straggler_event);
-        // Events are in order of LARGEST to SMALLEST
-        events->push_back(*event_riterator);
-        event_riterator++;
-    }
-#endif
-    // std::cout<<"events for coast forward "<<events->size()<<"\n";
     return events;
 }
 
