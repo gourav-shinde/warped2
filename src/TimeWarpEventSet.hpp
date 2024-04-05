@@ -54,12 +54,11 @@ public:
                      bool is_lp_migration_on,
                      unsigned int num_of_worker_threads);
 
-#ifdef UNIFIED_QUEUE
-#else
-    void acquireInputQueueLock (unsigned int lp_id);
 
-    void releaseInputQueueLock (unsigned int lp_id);
-#endif
+    void acquireUnifiedQueueLock (unsigned int lp_id);
+
+    void releaseUnifiedQueueLock (unsigned int lp_id);
+
 
     InsertStatus insertEvent (unsigned int lp_id, std::shared_ptr<Event> event, uint32_t thread_id);
 
@@ -70,6 +69,7 @@ public:
 
     //done
     std::shared_ptr<Event> lastProcessedEvent (unsigned int lp_id);
+    std::shared_ptr<Event> nextUnprocessedEvent (unsigned int lp_id);
 
     void rollback (unsigned int lp_id, std::shared_ptr<Event> straggler_event);
 
@@ -92,14 +92,12 @@ public:
     void reportEvent (std::shared_ptr<Event> event, uint16_t thread_id);
     void resetThreadMin(unsigned int thread_id);
     bool fixPos(unsigned int lp_id);
+
+    
     //this is done
     unsigned int fossilCollect (unsigned int fossil_collect_time, unsigned int lp_id);
 
 
-#ifdef UNIFIED_QUEUE
-    void markUnprocessed(unsigned int lp_id, std::shared_ptr<Event> event);
-#else
-#endif
 
 private:
     // Number of lps

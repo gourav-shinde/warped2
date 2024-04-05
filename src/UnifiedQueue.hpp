@@ -75,15 +75,24 @@ private:
     comparator compare_; //currently not  used, as we are not sorting anymore
     negativeCounterPart negativeCounterPart_; //used to find negative counterpart
     std::mutex lock_;
+    // bool sortfunction(Data a, Data b) { return compare_(a.getData(), b.getData()); };
     
 public:
-    UnifiedQueue(uint16_t capacity=5000){
-        if(capacity > 5000){
+    UnifiedQueue(uint16_t capacity=1024){
+        if(capacity > 1024){
             throw std::invalid_argument("Capacity should be less than 1024");
         }
         queue_.resize(capacity); 
         //init condition is 0,0,0
         marker_.store(0, std::memory_order_relaxed);
+    }
+
+    void getlock(){
+        lock_.lock();
+    }
+
+    void releaseLock(){
+        lock_.unlock();
     }
 
     bool getUnprocessedSign(){
@@ -221,12 +230,16 @@ public:
             }
             for(uint64_t j=0;j<range*2;j++){
                 std::cout <<"("<<i<<",";
-                if(!queue_[i].isValid())
+                if(!queue_[i].isValid()){
                     std::cout<<"-";
-                if(queue_[i].getData()->event_type_ == warped::EventType::POSITIVE){
+                }
+                if(queue_[i].getData() != nullptr && queue_[i].getData()->event_type_ == warped::EventType::POSITIVE){
                     std::cout<<"+";
                 }
-                std::cout<<queue_[i].getData()->timestamp() << ")";
+                if(queue_[i].getData() != nullptr)
+                    std::cout<<queue_[i].getData()->timestamp() << ")";
+                else
+                    std::cout<<")";
                 i = nextIndex(i);
                 if(i == getFreeStart()){
                     break;
@@ -237,15 +250,16 @@ public:
         else{
             for (auto itr : queue_) {
                 std::cout<<"(";
-                if(!itr.isValid())
+                if(!itr.isValid()){
                     std::cout<<"-";
+                }
                 if(itr.getData()->event_type_ == warped::EventType::POSITIVE){
                     std::cout<<"+";
                 }
                 if(itr.getData() != nullptr)
                     std::cout<<itr.getData()->timestamp() << ")";
                 else
-                    std::cout<<"-)";
+                    std::cout<<")";
             }
         }
          
@@ -337,6 +351,20 @@ public:
         return (low) % capacity();
     }
 
+    uint64_t linearSearch(T element, uint64_t low, uint64_t high){
+        uint64_t i = low;
+        while (i != high) {
+            if(queue_[i].getData() == nullptr){
+                debug();
+            }
+            if (this->compare_(element, queue_[i].getData())) {
+                return i;
+            }
+            i = nextIndex(i);
+        }
+        return i;
+    }
+
     //no checks for valid indexes is made here as it should be done by the caller
     //low: activeStart_
     //high: freeStart_
@@ -346,20 +374,21 @@ public:
         if (low == high && getFreeSign() == 0){
             return getUnprocessedStart();
         }
+        return linearSearch(element, low, high);
 
-        // when there is no rotation in queue
-        if (low < high) {
-            return binarySearch(element, low, high);
-        }
-        // rotation i.e fossileStart_ < activeStart_
-        else {
-            if (compare_(element, queue_[capacity() - 1].getData())) {
-                return binarySearch(element, low, capacity() - 1);
-            }
-            else {
-                return binarySearch(element, 0, high);
-            }
-        }
+        // // when there is no rotation in queue
+        // if (low < high) {
+        //     return binarySearch(element, low, high);
+        // }
+        // // rotation i.e fossileStart_ < activeStart_
+        // else {
+        //     if (compare_(element, queue_[capacity() - 1].getData())) {
+        //         return binarySearch(element, low, capacity() - 1);
+        //     }
+        //     else {
+        //         return binarySearch(element, 0, high);
+        //     }
+        // }
     }
 
 
@@ -371,17 +400,18 @@ public:
         while (i != start) {
             queue_[i] = queue_[prevIndex(i)];
             i = prevIndex(i);
-        }
+        } 
     }
 
     // we are not handling out of order elements in this queue.
-    uint64_t enqueue(T element){
+    // This is thread safe
+    uint64_t enqueue(T element, bool negative = false){
+        
         lock_.lock();
+       
         enqueue_counter_++;
-        uint64_t insertPos = 0;
-        bool success = false;
-        while(!success){
-            //checks first
+        uint64_t insertPos = getUnprocessedStart();
+        
             if (isFull()){
                 //throw message
                 this->debug();
@@ -396,44 +426,65 @@ public:
 
            uint64_t marker = marker_.load(std::memory_order_relaxed);
            uint64_t markerCopy = marker;
-            if(nextIndex(FreeStart(marker)) == ActiveStart(marker)){//queue will become full after this insert
+           if(nextIndex(FreeStart(marker)) == ActiveStart(marker)){//queue will become full after this insert
                 //set freeSign_ to 1
-                setFreeSignMarker(marker,1);
+                setFreeSign(1);
             }
             setUnprocessedSignMarker(marker, 0);
             setFreeStartMarker(marker, nextIndex(FreeStart(marker)));
-            
-            //run follwing code when running gtest, this adds a delay so threads collide making 
-            //compare and swap fail
-            #ifdef GTEST_FOUND
-                // std::cout<<"called "<<element.receiveTime_<<std::endl;
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            #endif
-            
-            //make sure marker doesnt change for doing 1+1 operation using compare and swap
-            
+             
+        ;
+        //FOR OUT OF ORDER LOGIC
+        if(isEmpty()){//queue is empty
             while (marker_.compare_exchange_weak(
                     markerCopy, marker,
                     std::memory_order_release, std::memory_order_relaxed)){
-                //FOR OUT OF ORDER LOGIC
-                if(isEmpty()){//queue is empty
-                    queue_[UnprocessedStart(markerCopy)] = element;
-                    insertPos = UnprocessedStart(markerCopy);
+                queue_[UnprocessedStart(markerCopy)] = element;
+                insertPos = UnprocessedStart(markerCopy);
+            }
+            
+            
+        }
+        else{
+            // uint64_t UnprocessedStart = UnprocessedStart(markerCopy);
+            // uint64_t FreeStart = FreeStart(markerCopy);
+            // unused(FreeStart);
+            // unused(UnprocessedStart);
+            insertPos = findInsertPosition(element, UnprocessedStart(markerCopy), FreeStart(markerCopy));
+            if(negative){
+                if(queue_[insertPos].getData()!=nullptr && negativeCounterPart_(queue_[insertPos].getData(), element)){
+                    queue_[insertPos].invalidate();
+                    insertPos = INT32_MAX;
+                    // std::cout<<"JUMBOOOOOOO";
                 }
                 else{
-                    insertPos = findInsertPosition(element, UnprocessedStart(markerCopy), FreeStart(markerCopy));
-                    shiftElements(insertPos, FreeStart(markerCopy));
-                    queue_[insertPos] = element;
+                    //didnt find positive counterpart and we insert
+                    while (marker_.compare_exchange_weak(
+                    markerCopy, marker,
+                    std::memory_order_release, std::memory_order_relaxed)){
+                        shiftElements(insertPos, FreeStart(markerCopy));
+                        queue_[insertPos] = element;
+                    }
+                    
                 }
-                #ifdef GTEST_FOUND
-                   // std::cout<<"Inserted "<<element.receiveTime_<<" at "<<FreeStart(markerCopy)<<std::endl;  
-                                
-                #endif
-                // queue_[FreeStart(markerCopy)] = Data(element);
-                success = true;
+
             }
-            lock_.unlock();
+            else{
+                while (marker_.compare_exchange_weak(
+                    markerCopy, marker,
+                    std::memory_order_release, std::memory_order_relaxed)){
+                        shiftElements(insertPos, FreeStart(markerCopy));
+                        queue_[insertPos] = element;
+                }
+                
+            }
         }
+        
+        
+        
+
+        lock_.unlock();
+    
            
         
         // std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -452,12 +503,12 @@ public:
             if (isEmpty()){
                 //throw message
                 std::cout << "Queue is empty" << std::endl;
-                return T();
+                return nullptr;
             }
             if(getUnprocessedSign()){
                 //throw message
                 std::cout << "unprocessed Queue is empty" << std::endl;
-                return T();
+                return nullptr;
             }
 
             uint64_t marker = marker_.load(std::memory_order_relaxed);
@@ -485,12 +536,15 @@ public:
                         success = true;
                         dequeue_counter_++;
                     }
+                    
             }
             if(success)
                 return element;
+            //call fix position here without updating the markers
+            fixPositionInvalid();
             
         }
-        return T();
+        return nullptr;
         
     }
 
@@ -607,10 +661,28 @@ public:
 
     }
 
+    void sortQueue(){
+        uint64_t unprocessedStart_ = getUnprocessedStart();
+        uint64_t freeStart_ = getFreeStart();
+
+        if(unprocessedStart_ < freeStart_){ //no rotation
+            std::sort(queue_.begin() + unprocessedStart_, queue_.begin() + freeStart_, [this](Data a, Data b) { return compare_(a.getData(), b.getData()); });
+        }
+        else{ //rotation
+            // vector<Data> tempQueue ;
+            // std::copy(queue_.begin() + unprocessedStart_, queue_.end(), tempQueue.begin());
+            // std::copy(queue_.begin(), queue_.begin() + freeStart_, tempQueue.end());
+            // std::sort(tempQueue.begin(), tempQueue.end(), sortfunction);
+            // //place the sorted queue back
+            // std::copy(tempQueue.begin(), tempQueue.begin()+(capacity()-unprocessedStart_), queue_.begin() + unprocessedStartMask_);
+            // std::copy(tempQueue.begin()+(capacity()-unprocessedStart_), tempQueue.end(), queue_.begin());
+        }
+    }
+
 
     /// @brief This fixes the position of the events
     /// No Markers change
-    bool fixPosition() {
+    bool fixPosition(bool debug = false) {
         rollback_function_counter_++;
         if (getActiveStart() == getUnprocessedStart() && !getFreeSign()) {//active zone is empty
             return false;
@@ -629,7 +701,8 @@ public:
         uint16_t swap_index_r = prevIndex(UnprocessedStart(marker));
         uint16_t swap_index_l = swap_index_r;
         // debug(true, 5);
-        // std::cout<<"swap_index_r: "<<swap_index_r<<std::endl;
+        if(debug)
+        std::cout<<"swap_index_r: "<<swap_index_r<<std::endl;
         while (swap_index_r != activeStart && compare_(queue_[swap_index_r].getData(), queue_[prevIndex(swap_index_r)].getData())) {
             std::swap(queue_[prevIndex(swap_index_r)], queue_[swap_index_r]);
             
@@ -641,9 +714,47 @@ public:
         }
         
         if(swap_index_r != swap_index_l){
+            //sort call here
+            
+            sortQueue();
             return true;
         }
-        // std::cout<<"swap index after"<<swap_index_r<<std::endl;
+        if(debug)
+        std::cout<<"swap index after"<<swap_index_r<<std::endl;
+        return false;
+
+        
+    }
+
+    
+
+
+    /// @brief This fixes the position of the events
+    /// No Markers change
+    bool fixPositionInvalid() {
+        // std::cout<<"called invalid fix";
+        if (getActiveStart() == getUnprocessedStart() && !getFreeSign()) {//active zone is empty
+            return false;
+        }
+
+        uint64_t marker = marker_.load(std::memory_order_relaxed);
+        uint64_t activeStart = ActiveStart(marker);
+
+
+        //get previous valid event from unprocessed start
+        uint16_t swap_index_r = prevIndex(UnprocessedStart(marker));
+        uint16_t swap_index_l = swap_index_r;
+        // debug(true, 5);
+        
+        while (swap_index_r != activeStart && compare_(queue_[swap_index_r].getData(), queue_[prevIndex(swap_index_r)].getData())) {
+            std::swap(queue_[prevIndex(swap_index_r)], queue_[swap_index_r]);
+            swap_index_r = prevIndex(swap_index_r); 
+        }
+        
+        if(swap_index_r != swap_index_l){
+            return true;
+        }
+        
         return false;
 
         
@@ -661,9 +772,19 @@ public:
         do{
                 element=queue_[prevIndex(index)].getData();
             index=prevIndex(index);
-        }while(!queue_[prevIndex(index)].isValid() && prevIndex(getActiveStart())!=prevIndex(index)); // this can be Infinite if all elements are invalid
+        }while(!queue_[prevIndex(index)].isValid() && getActiveStart()!=index); // this can be Infinite if all elements are invalid
         return element;
         
+    }
+
+    T getNextUnprocessedEvent(){
+        T element = nullptr;
+        uint16_t index=nextIndex(getUnprocessedStart());
+        do{
+                element=queue_[nextIndex(index)].getData();
+            index=nextIndex(index);
+        }while(!queue_[nextIndex(index)].isValid() && getFreeStart()!=index); // this can be Infinite if all elements are invalid
+        return element;
     }
 
     /// need a -ve comparator

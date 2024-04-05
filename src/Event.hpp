@@ -4,6 +4,7 @@
 #include <string>
 #include "serialization.hpp"
 
+
 namespace warped {
 
 struct compareEvents;
@@ -165,6 +166,9 @@ public:
                 && (first->event_type_ == EventType::POSITIVE));
     }
 };
+
+
+
 
 } // namespace warped
 
