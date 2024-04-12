@@ -666,7 +666,7 @@ public:
         uint64_t freeStart_ = getFreeStart();
 
         if(unprocessedStart_ < freeStart_){ //no rotation
-            std::sort(queue_.begin() + unprocessedStart_, queue_.begin() + freeStart_, [this](Data a, Data b) { return compare_(a.getData(), b.getData()); });
+            std::sort(queue_.begin() + unprocessedStart_, queue_.begin() + freeStart_ - 1, [this](Data a, Data b) { return compare_(a.getData(), b.getData()); });
         }
         else{ //rotation
             // vector<Data> tempQueue ;
@@ -699,6 +699,16 @@ public:
 
         //get previous valid event from unprocessed start
         uint16_t swap_index_r = prevIndex(UnprocessedStart(marker));
+        if(debug){
+            std::cout<<"event which is supposed to be swapped\n";
+            std::cout<<queue_[swap_index_r].getData()->timestamp()<<std::endl;
+            if(queue_[swap_index_r].getData()->event_type_ == warped::EventType::NEGATIVE){
+                std::cout<<"NEGATIVE\n";
+            }
+            else{
+                std::cout<<"POSITIVE\n";
+            }
+        }
         uint16_t swap_index_l = swap_index_r;
         // debug(true, 5);
         if(debug)

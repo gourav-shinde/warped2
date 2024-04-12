@@ -246,32 +246,20 @@ namespace warped
                 //     //this means its a straggler as well as negative, which means the next event is its +ve counterpart
                 //     rollback(event);
                 // }
-                if (false)
+                if (current_lp_id == 1758)
                 {
                     std::cout << "Event: " << event->timestamp() << std::endl;
                     if (last_processed_event != nullptr)
                         std::cout << "Last Processed Event: " << last_processed_event->timestamp() << std::endl;
-                    // if (event->timestamp() == 266)
-                    // {
-                    //     std::cout << "Event: " << event->timestamp() << "\n";
-                    //     if (event->event_type_ == EventType::NEGATIVE)
-                    //     {
-                    //         std::cout << "Negative Event\n";
-                    //         std::cout << "if negative rollback needs to be called\n";
-                    //     }
-                    //     else
-                    //     {
-                    //         std::cout << "Positive Event\n";
-                    //     };
-                    //     if ((last_processed_event &&
-                    //     (event->timestamp() <= last_processed_event->timestamp())) ||
-                    //     (event->event_type_ == EventType::NEGATIVE))
-                    //     {
-                            
-                    //                 std::cout << "this is okay";
-                              
-                    //     }
-                    // }
+                    if (event->event_type_ == EventType::NEGATIVE)
+                    {
+                        std::cout << "Negative Event\n";
+                        std::cout << "if negative rollback needs to be called\n";
+                    }
+                    else
+                    {
+                        std::cout << "Positive Event\n";
+                    };
                 }
 
                 if ((last_processed_event &&
@@ -512,18 +500,14 @@ namespace warped
         event_set_->rollback(local_lp_id, straggler_event);
         event_set_->releaseInputQueueLock(local_lp_id);
 #endif
-
+         
         // Restore state by getting most recent saved state before the straggler and coast forwarding.
         auto restored_state_event = state_manager_->restoreState(straggler_event, local_lp_id,
                                                                  current_lp);
         assert(restored_state_event);
         assert(*restored_state_event < *straggler_event);
 
-        // mark event after restore_state_event as Unprocessed
-#ifdef UNIFIED_QUEUE
-        // event_set_->markUnprocessed(local_lp_id, restored_state_event);
-#endif
-        // then do coast forwarding until u reach staggler event
+
 
         // Send anti-messages
         auto events_to_cancel = output_manager_->rollback(straggler_event, local_lp_id);
