@@ -5,6 +5,7 @@
 #include "TimeWarpEventSet.hpp"
 #include "utility/warnings.hpp"
 
+
 namespace warped
 {
 
@@ -104,10 +105,10 @@ namespace warped
     {
 
         auto ret = InsertStatus::Success;
-        // if(lp_id == 1758 || lp_id == 4781){
-        //     std::cout<<"lp_id "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
-        //     unified_queue_[lp_id]->debug(true, 0);
-        // }
+        if(lp_id == 9068){
+            std::cout<<"lp_id "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
+            unified_queue_[lp_id]->debug(true, 0);
+        }
         // std::cout<<"Insert event\n";
         uint64_t insertPos{0};
         if (event->event_type_ == EventType::NEGATIVE)
@@ -118,10 +119,15 @@ namespace warped
         {
             insertPos = unified_queue_[lp_id]->enqueue(event);
         }
-        // if(lp_id == 1758 || lp_id == 4781){
-        //     std::cout<<"afterlp_id "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
-        //     unified_queue_[lp_id]->debug(true, 5);
-        // }
+        if(lp_id == 9068 ){
+            std::cout<<"afterlp_id "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
+            // unified_queue_[lp_id]->debug(true, 5);
+            std::cout<<"inserted ";
+            if(event->event_type_ == EventType::NEGATIVE){
+                std::cout<<"-ve ";
+            }
+            std::cout<<event->timestamp()<<" at "<<insertPos<<std::endl;
+        }
 
         
         unused(insertPos);
@@ -278,7 +284,8 @@ namespace warped
                     // printEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart())));
                     // std::cout<<"temp-1 "<<unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart());
                     // printEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart())));
-                    
+                    //sleep for 1 sec
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
                     abort();
                 }
                 
@@ -359,15 +366,19 @@ namespace warped
         if (!unified_queue_[lp_id]->getUnprocessedSign())
         {
 
-            // if(lp_id == 1758){
+            // if(lp_id == 9068){
             //     std::cout<<"replenishScheduler called before dequeue\n";
             //     unified_queue_[lp_id]->debug(true, 0);
             // }
             scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
-            // if(lp_id == 1758){
-            //     std::cout<<"replenishScheduler called after dequeue\n";
-            //     unified_queue_[lp_id]->debug(true, 0);
-            // }
+            if(lp_id == 9068){
+                if(scheduled_event_pointer_[lp_id]->event_type_ == EventType::NEGATIVE){
+                    std::cout<<"-";
+                }
+                
+                std::cout<<scheduled_event_pointer_[lp_id]->timestamp()<<" is event put in schedule queue\n";
+                unified_queue_[lp_id]->debug(true, 0);
+            }
 
             unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
             if (scheduled_event_pointer_[lp_id] != nullptr)
@@ -412,15 +423,18 @@ namespace warped
         if (!unified_queue_[lp_id]->getUnprocessedSign())
         {
             
-            // if(lp_id == 1758){
+            // if(lp_id == 9068){
             //     std::cout<<"replenishScheduler called before dequeue\n";
             //     unified_queue_[lp_id]->debug(true, 0);
             // }
             scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
-            // if(lp_id == 1758){
-            //     std::cout<<"replenishScheduler called after dequeue\n";
-            //     unified_queue_[lp_id]->debug(true, 0);
-            // }
+            if(lp_id == 9068){
+                if(scheduled_event_pointer_[lp_id]->event_type_ == EventType::NEGATIVE){
+                    std::cout<<"-";
+                }
+                std::cout<<scheduled_event_pointer_[lp_id]->timestamp()<<" is event put in schedule queue\n";
+                unified_queue_[lp_id]->debug(true, 0);
+            }
             
 
             if (scheduled_event_pointer_[lp_id] != nullptr)

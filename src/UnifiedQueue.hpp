@@ -495,19 +495,21 @@ public:
     /// @brief
     /// @return returns the element at the front of the UnprocessStart
     T dequeue(){ 
-        
+        lock_.lock();
         // std::cout<<"dequeue called "<<std::endl;
         bool success = false;
         while(!success){
             //checks first
             if (isEmpty()){
                 //throw message
-                std::cout << "Queue is empty" << std::endl;
+                // std::cout << "Queue is empty" << std::endl;
+                lock_.unlock();
                 return nullptr;
             }
             if(getUnprocessedSign()){
                 //throw message
-                std::cout << "unprocessed Queue is empty" << std::endl;
+                // std::cout << "unprocessed Queue is empty" << std::endl;
+                lock_.unlock();
                 return nullptr;
             }
 
@@ -520,30 +522,24 @@ public:
             }
             setUnprocessedStartMarker(marker, nextIndex(UnprocessedStart(marker)));
             T element;
-            #ifdef GTEST_FOUND
-                std::cout<<"dequeue called "<<std::endl;
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            #endif
-            while (marker_.compare_exchange_weak(
-                    markerCopy, marker,
-                    std::memory_order_release, std::memory_order_relaxed)){
-                    
-                    element = queue_[UnprocessedStart(markerCopy)].getData();
-                    #ifdef GTEST_FOUND
-                        std::cout<<"dequeue success at "<<UnprocessedStart(markerCopy)<<std::endl;
-                    #endif
-                    if(queue_[UnprocessedStart(markerCopy)].isValid()){//this will make it so the function retrives next element if invalid element is found
-                        success = true;
-                        dequeue_counter_++;
-                    }
-                    
+            
+            element = queue_[UnprocessedStart(markerCopy)].getData();
+            marker_.store(marker, std::memory_order_relaxed);
+            if(queue_[UnprocessedStart(markerCopy)].isValid()){//this will make it so the function retrives next element if invalid element is found
+                success = true;
+                dequeue_counter_++;
             }
-            if(success)
+                    
+            
+            if(success){
+                lock_.unlock();
                 return element;
+            }
             //call fix position here without updating the markers
             fixPositionInvalid();
             
         }
+        lock_.unlock();
         return nullptr;
         
     }
