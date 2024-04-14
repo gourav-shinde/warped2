@@ -217,7 +217,9 @@ namespace warped
                 LogicalProcess *current_lp = lps_by_name_[event->receiverName()];
 
                 // Get the last processed event so we can check for a rollback
+                event_set_->acquireUnifiedQueueLock(current_lp_id);
                 auto last_processed_event = event_set_->lastProcessedEvent(current_lp_id);
+                event_set_->releaseUnifiedQueueLock(current_lp_id);
 
                 // The rules with event processing
                 //      1. Negative events are given priority over positive events if they both exist
@@ -246,21 +248,21 @@ namespace warped
                 //     //this means its a straggler as well as negative, which means the next event is its +ve counterpart
                 //     rollback(event);
                 // }
-                if (current_lp_id == 9068)
-                {
-                    std::cout << "Event: " << event->timestamp() << std::endl;
-                    if (last_processed_event != nullptr)
-                        std::cout << "Last Processed Event: " << last_processed_event->timestamp() << std::endl;
-                    if (event->event_type_ == EventType::NEGATIVE)
-                    {
-                        std::cout << "Negative Event\n";
-                        std::cout << "if negative rollback needs to be called\n";
-                    }
-                    else
-                    {
-                        std::cout << "Positive Event\n";
-                    };
-                }
+                // if (current_lp_id == 9541)
+                // {
+                //     std::cout << "Event: " << event->timestamp() << std::endl;
+                //     if (last_processed_event != nullptr)
+                //         std::cout << "Last Processed Event: " << last_processed_event->timestamp() << std::endl;
+                //     if (event->event_type_ == EventType::NEGATIVE)
+                //     {
+                //         std::cout << "Negative Event\n";
+                //         std::cout << "if negative rollback needs to be called\n";
+                //     }
+                //     else
+                //     {
+                //         std::cout << "Positive Event\n";
+                //     };
+                // }
 
                 if ((last_processed_event &&
                      (event->timestamp() <= last_processed_event->timestamp())) ||
@@ -487,19 +489,13 @@ namespace warped
             assert(false);
         }
 
-#ifdef UNIFIED_QUEUE
-        // if(straggler_event->event_type_ == EventType::NEGATIVE)
-        //     std::cout<<"Rolling back -ve event\n";
+
         event_set_->acquireUnifiedQueueLock(local_lp_id);
         event_set_->rollback(local_lp_id, straggler_event);
         event_set_->releaseUnifiedQueueLock(local_lp_id);
         
-#else
-        // Move processed events larger  than straggler back to input queue.
-        event_set_->acquireInputQueueLock(local_lp_id);
-        event_set_->rollback(local_lp_id, straggler_event);
-        event_set_->releaseInputQueueLock(local_lp_id);
-#endif
+        
+
          
         // Restore state by getting most recent saved state before the straggler and coast forwarding.
         auto restored_state_event = state_manager_->restoreState(straggler_event, local_lp_id,
@@ -517,7 +513,10 @@ namespace warped
         }
 
         //
+        
         coastForward(straggler_event, restored_state_event);
+        
+        
         
     }
 

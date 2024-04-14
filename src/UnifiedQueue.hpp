@@ -662,7 +662,7 @@ public:
         uint64_t freeStart_ = getFreeStart();
 
         if(unprocessedStart_ < freeStart_){ //no rotation
-            std::sort(queue_.begin() + unprocessedStart_, queue_.begin() + freeStart_ - 1, [this](Data a, Data b) { return compare_(a.getData(), b.getData()); });
+            std::sort(queue_.begin() + unprocessedStart_, queue_.begin() + freeStart_, [this](Data a, Data b) { return compare_(a.getData(), b.getData()); });
         }
         else{ //rotation
             // vector<Data> tempQueue ;
@@ -721,12 +721,10 @@ public:
         
         if(swap_index_r != swap_index_l){
             //sort call here
-            
-            sortQueue();
+        
             return true;
         }
-        if(debug)
-        std::cout<<"swap index after"<<swap_index_r<<std::endl;
+        
         return false;
 
         
@@ -776,9 +774,13 @@ public:
         uint16_t index=prevIndex(getUnprocessedStart());
         // element=queue_[index].getData();
         do{
-                element=queue_[prevIndex(index)].getData();
+            element=queue_[prevIndex(index)].getData();
+            if(queue_[prevIndex(index)].isValid()){
+                break;
+            }
             index=prevIndex(index);
-        }while(!queue_[prevIndex(index)].isValid() && getActiveStart()!=index); // this can be Infinite if all elements are invalid
+           
+        }while(getActiveStart()!=index); // this can be Infinite if all elements are invalid
         return element;
         
     }

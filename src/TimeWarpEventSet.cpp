@@ -105,7 +105,7 @@ namespace warped
     {
 
         auto ret = InsertStatus::Success;
-        if(lp_id == 9068){
+        if(lp_id == 9541){
             std::cout<<"lp_id "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
             unified_queue_[lp_id]->debug(true, 0);
         }
@@ -119,7 +119,7 @@ namespace warped
         {
             insertPos = unified_queue_[lp_id]->enqueue(event);
         }
-        if(lp_id == 9068 ){
+        if(lp_id == 9541 ){
             std::cout<<"afterlp_id "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
             // unified_queue_[lp_id]->debug(true, 5);
             std::cout<<"inserted ";
@@ -132,19 +132,11 @@ namespace warped
         
         unused(insertPos);
         reportEvent(event, thread_id);
-        unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
+        
 
         if (scheduled_event_pointer_[lp_id] == nullptr)
         {
-            // If no event is currently scheduled. This can only happen if the thread that handles
-            // events for lp with id == lp_id has determined that there are no more events left in
-            // its input queue
-
-            // assert(unified_queue_[lp_id]->size() == 1);
-
-            schedule_queue_[scheduler_id]->insert(event);
-
-            scheduled_event_pointer_[lp_id] = event;
+            startScheduling(lp_id);
             ret = InsertStatus::StarvedObject;
         }
 
@@ -200,6 +192,10 @@ namespace warped
      */
     std::shared_ptr<Event> TimeWarpEventSet::lastProcessedEvent(unsigned int lp_id)
     {
+        // if(lp_id == 9541){
+        //     std::cout<<"lastProcessedEvent called\n";
+        //     unified_queue_[lp_id]->debug(true, 3);
+        // }
         return unified_queue_[lp_id]->getPreviousUnprocessedEvent();
     }
 
@@ -224,7 +220,10 @@ namespace warped
         // Every event GREATER OR EQUAL to straggler event must remove from the processed queue and
         // reinserted back into input queue.
         // EQUAL will ensure that a negative message will properly be cancelled out.
+        
         unified_queue_[lp_id]->fixPosition();
+        
+        
         
 
         // unused(straggler_event);
@@ -266,7 +265,7 @@ namespace warped
             else
             {
 
-                if(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart())) != nullptr &&
+                if(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()) != nullptr &&
                     compare(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()), straggler_event)){
 
                         unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart()));
@@ -291,6 +290,7 @@ namespace warped
                 
             }
         }
+        unified_queue_[lp_id]->sortQueue();
     }
 
     /*
@@ -319,13 +319,31 @@ namespace warped
         // Create empty vector
         auto events = make_unique<std::vector<std::shared_ptr<Event>>>();
         unused(restored_state_event);
-        uint64_t unProcessedStart = unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart());
+        
+        uint64_t unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
         // uint32_t freeStart = unified_queue_[lp_id]->getFreeStart();
         uint64_t activeStart = unified_queue_[lp_id]->getActiveStart();
 
+        if(activeStart == unProcessedStart){
+            //means active zone is empty
+            // std::cerr<<"ERROR: active zone is empty\n";
+            // std::cout<<"lp_id: "<<lp_id<<"\n";
+            // unified_queue_[lp_id]->debug(true, 10);
+            // printEvent(restored_state_event);
+            // printEvent(straggler_event);
+            return events;
+        }
+        unProcessedStart = unified_queue_[lp_id]->prevIndex(unProcessedStart);
+
+        
+        
+        if(lp_id == 5174)
+        std::cout<<"CoastForwardCalled\n";
+
         compareEvents compare;
-        while (compare(restored_state_event, unified_queue_[lp_id]->getValue(unProcessedStart)) &&
-               unProcessedStart != activeStart)
+      
+        while (compare(restored_state_event, unified_queue_[lp_id]->getValue(unProcessedStart))
+               )
         {
             // unified_queue_[lp_id]->debug();
             // std::cout<<"unProcessedStart: "<<unProcessedStart<<"\n";
@@ -340,8 +358,25 @@ namespace warped
                     unified_queue_[lp_id]->debug(true, 10);
                 }
             }
+            if(unProcessedStart == activeStart){
+                break;
+            }
+            // if(lp_id == 5174)
+            //     std::cout<<unProcessedStart<<" ";
             unProcessedStart = unified_queue_[lp_id]->prevIndex(unProcessedStart);
+
+            if(unified_queue_[lp_id]->getValue(unProcessedStart) ==nullptr){
+                std::cout<<"ERROR: null event in coast forward\n";
+                std::cout<<"lp_id: "<<lp_id<<"\n";
+                std::cout<<"unProcessedStart: "<<unProcessedStart<<"\n";
+                printEvent(restored_state_event);
+                printEvent(straggler_event);
+                unified_queue_[lp_id]->debug(true, 10);
+                // abort();
+            }
         }
+        // if(lp_id == 5174)
+        // std::cout<<"\n";
 
         return events;
     }
@@ -366,23 +401,24 @@ namespace warped
         if (!unified_queue_[lp_id]->getUnprocessedSign())
         {
 
-            // if(lp_id == 9068){
-            //     std::cout<<"replenishScheduler called before dequeue\n";
-            //     unified_queue_[lp_id]->debug(true, 0);
-            // }
+            
             scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
-            if(lp_id == 9068){
-                if(scheduled_event_pointer_[lp_id]->event_type_ == EventType::NEGATIVE){
-                    std::cout<<"-";
-                }
-                
-                std::cout<<scheduled_event_pointer_[lp_id]->timestamp()<<" is event put in schedule queue\n";
-                unified_queue_[lp_id]->debug(true, 0);
-            }
-
+            
             unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
-            if (scheduled_event_pointer_[lp_id] != nullptr)
+            if (scheduled_event_pointer_[lp_id] != nullptr){
+                //safe check
                 schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
+                // if(lp_id == 9541){
+                //     if(scheduled_event_pointer_[lp_id]->event_type_ == EventType::NEGATIVE){
+                //         std::cout<<"-ve ";
+                //     }
+                //     std::cout<<scheduled_event_pointer_[lp_id]->timestamp()<<" put inside scheduled queue\n";
+                //     unified_queue_[lp_id]->debug(true, 10);
+                // }
+            }
+            else{
+                scheduled_event_pointer_[lp_id] = nullptr;
+            }
         }
         else
         {
@@ -406,7 +442,7 @@ namespace warped
         assert(scheduled_event_pointer_[lp_id]);
 
         // Move the just processed event to the processed queue
-#ifdef UNIFIED_QUEUE
+
         // Map the lp to the next schedule queue (cyclic order)
         // This is supposed to balance the load across all the schedule queues
         // Input queue lock is sufficient to ensure consistency
@@ -423,58 +459,34 @@ namespace warped
         if (!unified_queue_[lp_id]->getUnprocessedSign())
         {
             
-            // if(lp_id == 9068){
+            // if(lp_id == 9541){
             //     std::cout<<"replenishScheduler called before dequeue\n";
             //     unified_queue_[lp_id]->debug(true, 0);
             // }
             scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
-            if(lp_id == 9068){
-                if(scheduled_event_pointer_[lp_id]->event_type_ == EventType::NEGATIVE){
-                    std::cout<<"-";
-                }
-                std::cout<<scheduled_event_pointer_[lp_id]->timestamp()<<" is event put in schedule queue\n";
-                unified_queue_[lp_id]->debug(true, 0);
-            }
+            
+            
             
 
-            if (scheduled_event_pointer_[lp_id] != nullptr)
+            if (scheduled_event_pointer_[lp_id] != nullptr){
                 schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
+                // if(lp_id == 9541){
+                //     if(scheduled_event_pointer_[lp_id]->event_type_ == EventType::NEGATIVE){
+                //         std::cout<<"-ve ";
+                //     }
+                //     std::cout<<scheduled_event_pointer_[lp_id]->timestamp()<<" put inside scheduled queue\n";
+                //     unified_queue_[lp_id]->debug(true, 10);
+                // }
+            }
+            else{
+                scheduled_event_pointer_[lp_id] = nullptr;
+            }
         }
         else
         {
             scheduled_event_pointer_[lp_id] = nullptr;
         }
-#else
-        auto num_erased = input_queue_[lp_id]->erase(scheduled_event_pointer_[lp_id]);
-        assert(num_erased == 1);
-        unused(num_erased);
 
-        processed_queue_[lp_id]->push_back(scheduled_event_pointer_[lp_id]);
-
-        // Map the lp to the next schedule queue (cyclic order)
-        // This is supposed to balance the load across all the schedule queues
-        // Input queue lock is sufficient to ensure consistency
-        unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
-        if (is_lp_migration_on_)
-        {
-            scheduler_id = (scheduler_id + 1) % num_of_schedulers_;
-            input_queue_scheduler_map_[lp_id] = scheduler_id;
-        }
-
-        // Update scheduler with new event for the lp the previous event was executed for
-        // NOTE: A pointer to the scheduled event will remain in the input queue
-        if (!input_queue_[lp_id]->empty())
-        {
-            scheduled_event_pointer_[lp_id] = *input_queue_[lp_id]->begin();
-            schedule_queue_lock_[scheduler_id].lock();
-            schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
-            schedule_queue_lock_[scheduler_id].unlock();
-        }
-        else
-        {
-            scheduled_event_pointer_[lp_id] = nullptr;
-        }
-#endif
     }
 
     // for this function, we invalid the event in the unified queue
