@@ -155,7 +155,7 @@ public:
 
 };
 
-/// FIRST NEGATIVE, SECOND POSITIVE
+/// FIRST positive, SECOND negative
 struct compareNegativeEvent {
 public:
     bool operator() (const std::shared_ptr<Event>& first,

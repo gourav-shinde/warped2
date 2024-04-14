@@ -18,7 +18,7 @@ private:
     uint32_t maxSize;
 
 public:
-    MinQueue(uint32_t size = 3) : maxSize(size) {
+    MinQueue(uint32_t size = 5) : maxSize(size) {
         push(0);//Initialize the queue with 0
     }
 

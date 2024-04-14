@@ -105,10 +105,10 @@ namespace warped
     {
 
         auto ret = InsertStatus::Success;
-        if(lp_id == 9541){
-            std::cout<<"lp_id "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
-            unified_queue_[lp_id]->debug(true, 0);
-        }
+        // if(lp_id == 9541){
+        //     std::cout<<"lp_id "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
+        //     unified_queue_[lp_id]->debug(true, 0);
+        // }
         // std::cout<<"Insert event\n";
         uint64_t insertPos{0};
         if (event->event_type_ == EventType::NEGATIVE)
@@ -119,15 +119,15 @@ namespace warped
         {
             insertPos = unified_queue_[lp_id]->enqueue(event);
         }
-        if(lp_id == 9541 ){
-            std::cout<<"afterlp_id "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
-            // unified_queue_[lp_id]->debug(true, 5);
-            std::cout<<"inserted ";
-            if(event->event_type_ == EventType::NEGATIVE){
-                std::cout<<"-ve ";
-            }
-            std::cout<<event->timestamp()<<" at "<<insertPos<<std::endl;
-        }
+        // if(lp_id == 9541 ){
+        //     std::cout<<"afterlp_id "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
+        //     // unified_queue_[lp_id]->debug(true, 5);
+        //     std::cout<<"inserted ";
+        //     if(event->event_type_ == EventType::NEGATIVE){
+        //         std::cout<<"-ve ";
+        //     }
+        //     std::cout<<event->timestamp()<<" at "<<insertPos<<std::endl;
+        // }
 
         
         unused(insertPos);
@@ -264,13 +264,10 @@ namespace warped
             }
             else
             {
-
-                if(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()) != nullptr &&
-                    compare(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()), straggler_event)){
-
+                auto status = unified_queue_[lp_id]->find(straggler_event); //goes and invalidates the +ve event
+                if(status == unified_queue_[lp_id]->FindStatus::UNPROCESSED){
+                        //invalid the negative event
                         unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart()));
-                        unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getUnprocessedStart());
-                    
                 }
                 else{
                     std::cout << "ERROR: negative event not in correct order\n";
@@ -336,9 +333,6 @@ namespace warped
         unProcessedStart = unified_queue_[lp_id]->prevIndex(unProcessedStart);
 
         
-        
-        if(lp_id == 5174)
-        std::cout<<"CoastForwardCalled\n";
 
         compareEvents compare;
       

@@ -603,56 +603,52 @@ public:
     FindStatus find(T element){
         
         FindStatus found=NOTFOUND;
-        bool success = false;
+        
         //checks first
 
-        while(!success){
-            if (isEmpty()){
-                //throw message
-                std::cout << "Queue is empty" << std::endl;
-                return NOTFOUND;
-            }
-            
-            uint64_t marker = marker_.load(std::memory_order_relaxed);
-            uint64_t markerCopy = marker;
-            
-            #ifdef GTEST_FOUND
-                std::cout<<"increamentActiveStart called "<<std::endl;
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            #endif
-            while (marker_.compare_exchange_weak(
-                    markerCopy, marker,
-                    std::memory_order_release, std::memory_order_relaxed)){
-                    
-                    uint16_t ActiveIndex = ActiveStart(markerCopy);
-                    uint16_t UnProcessedIndex = UnprocessedStart(markerCopy);
-                    uint16_t FreeIndex = FreeStart(markerCopy);
-                    #ifdef GTEST_FOUND
-                        std::cout<<"find success at "<<ActiveIndex<<
-                        " "<<UnProcessedIndex<<" "<<FreeIndex<<std::endl;
-                    #endif
-                    while(ActiveIndex != UnProcessedIndex){
-                        
-                        if(queue_[ActiveIndex].getData() == element){
-                            found = ACTIVE; //rollback
-                            break;
-                        }
-                        ActiveIndex = nextIndex(ActiveIndex);
-                    }
-                    while(UnProcessedIndex != FreeIndex && found!=ACTIVE){
-                        
-                        if(queue_[UnProcessedIndex].getData() == element){
-                            found = UNPROCESSED; //Invalidate The element
-                            queue_[UnProcessedIndex].invalidate();
-                            break;
-                        }
-                        UnProcessedIndex = nextIndex(UnProcessedIndex);
-                    }
-                    
-                    success = true;
-                    break;
-            }
+        
+        if (isEmpty()){
+            //throw message
+            std::cout << "Queue is empty" << std::endl;
+            return NOTFOUND;
         }
+        
+        uint64_t marker = marker_.load(std::memory_order_relaxed);
+        uint64_t markerCopy = marker;
+        
+        #ifdef GTEST_FOUND
+            std::cout<<"increamentActiveStart called "<<std::endl;
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        #endif
+        
+                
+        // uint16_t ActiveIndex = ActiveStart(markerCopy);
+        uint16_t UnProcessedIndex = UnprocessedStart(markerCopy);
+        uint16_t FreeIndex = FreeStart(markerCopy);
+        
+        // while(ActiveIndex != UnProcessedIndex){
+            
+        //     if(queue_[ActiveIndex].getData() == element){
+        //         found = ACTIVE; //rollback
+        //         break;
+        //     }
+        //     ActiveIndex = nextIndex(ActiveIndex);
+        // }
+        
+        while(UnProcessedIndex != FreeIndex){
+            
+            if(negativeCounterPart_(queue_[UnProcessedIndex].getData(), element)){
+                found = UNPROCESSED; //Invalidate The element
+                queue_[UnProcessedIndex].invalidate();
+                break;
+            }
+            UnProcessedIndex = nextIndex(UnProcessedIndex);
+        }
+            
+            
+            
+            
+        
         return found;
 
     }
