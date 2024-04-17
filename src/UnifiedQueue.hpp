@@ -95,11 +95,15 @@ public:
         lock_.unlock();
     }
 
-    bool getUnprocessedSign(){
-        return (marker_.load(std::memory_order_relaxed) & unprocessedSignMask_) ? true : false;
+    /// @brief returns whether unprocessed zone is empty
+    /// @return 1 if unprocessed zone is empty, 0 otherwise
+    bool isUnprocessedZoneEmpty(){
+        return (marker_.load(std::memory_order_relaxed) & unprocessedSignMask_) ? true : false;  
     }
 
-    bool getFreeSign(){
+    /// @brief return whether unified queue is empty or not
+    /// @return 1 if queue is full, 0 otherwise
+    bool isFull(){
         return (marker_.load(std::memory_order_relaxed) &  freeSignMask_) ? true : false;
     }
 
@@ -177,9 +181,7 @@ public:
         return false;
     }
 
-    bool isFull(){
-        return getFreeSign();
-    }
+    
 
     uint16_t size(){
         if(isEmpty()){
@@ -201,14 +203,14 @@ public:
         //print marker_ in hexcode
         // std::cout << "marker_: " << std::hex << marker_.load(std::memory_order_relaxed) << std::endl;
         std::cout << "activeStart: " << getActiveStart();
-        std::cout << " unprocessedSign: " << getUnprocessedSign();
+        std::cout << " unprocessedSign: " << isUnprocessedZoneEmpty();
         std::cout << " unprocessedStart: " << getUnprocessedStart();
-        std::cout << " freeSign: " << getFreeSign();
+        std::cout << " freeSign: " << isFull();
         std::cout << " freeStart: " << getFreeStart();
         std::cout << " size: " << size() << std::endl;
 
         // int i = getUnprocessedStart();
-        // if(!getUnprocessedSign()){
+        // if(!isUnprocessedZoneEmpty()){
         // do {
         //     std::cout << queue_[i].getData().receiveTime_ << " ";
         //     i = nextIndex(i);
@@ -248,18 +250,19 @@ public:
             std::cout << std::endl;
         }
         else{
+            uint16_t i {0};
             for (auto itr : queue_) {
-                std::cout<<"(";
-                if(!itr.isValid()){
-                    std::cout<<"-";
-                }
-                if(itr.getData()->event_type_ == warped::EventType::POSITIVE){
-                    std::cout<<"+";
-                }
-                if(itr.getData() != nullptr)
+                if(itr.getData() != nullptr){
+                    std::cout<<"("<<i<<",";
+                    if(!itr.isValid()){
+                        std::cout<<"-";
+                    }
+                    if(itr.getData()->event_type_ == warped::EventType::POSITIVE){
+                        std::cout<<"+";
+                    }
                     std::cout<<itr.getData()->timestamp() << ")";
-                else
-                    std::cout<<")";
+                }
+                ++i;
             }
         }
          
@@ -371,24 +374,24 @@ public:
 
     uint64_t findInsertPosition(T element, uint64_t low, uint64_t high){
         
-        if (low == high && getFreeSign() == 0){
+        if (low == high && isFull() == 0){
             return getUnprocessedStart();
         }
-        return linearSearch(element, low, high);
+        // return linearSearch(element, low, high);
 
         // // when there is no rotation in queue
-        // if (low < high) {
-        //     return binarySearch(element, low, high);
-        // }
-        // // rotation i.e fossileStart_ < activeStart_
-        // else {
-        //     if (compare_(element, queue_[capacity() - 1].getData())) {
-        //         return binarySearch(element, low, capacity() - 1);
-        //     }
-        //     else {
-        //         return binarySearch(element, 0, high);
-        //     }
-        // }
+        if (low < high) {
+            return binarySearch(element, low, high);
+        }
+        // rotation i.e fossileStart_ < activeStart_
+        else {
+            if (compare_(element, queue_[capacity() - 1].getData())) {
+                return binarySearch(element, low, capacity() - 1);
+            }
+            else {
+                return binarySearch(element, 0, high);
+            }
+        }
     }
 
 
@@ -459,24 +462,18 @@ public:
                 }
                 else{
                     //didnt find positive counterpart and we insert
-                    while (marker_.compare_exchange_weak(
-                    markerCopy, marker,
-                    std::memory_order_release, std::memory_order_relaxed)){
-                        shiftElements(insertPos, FreeStart(markerCopy));
-                        queue_[insertPos] = element;
-                    }
+                    marker_ = marker;
+                    shiftElements(insertPos, FreeStart(markerCopy));
+                    queue_[insertPos] = element;
+                    
                     
                 }
 
             }
             else{
-                while (marker_.compare_exchange_weak(
-                    markerCopy, marker,
-                    std::memory_order_release, std::memory_order_relaxed)){
-                        shiftElements(insertPos, FreeStart(markerCopy));
-                        queue_[insertPos] = element;
-                }
-                
+                marker_ = marker;
+                shiftElements(insertPos, FreeStart(markerCopy));
+                queue_[insertPos] = element;  
             }
         }
         
@@ -506,7 +503,7 @@ public:
                 lock_.unlock();
                 return nullptr;
             }
-            if(getUnprocessedSign()){
+            if(isUnprocessedZoneEmpty()){
                 //throw message
                 // std::cout << "unprocessed Queue is empty" << std::endl;
                 lock_.unlock();
@@ -676,7 +673,7 @@ public:
     /// No Markers change
     bool fixPosition(bool debug = false) {
         rollback_function_counter_++;
-        if (getActiveStart() == getUnprocessedStart() && !getFreeSign()) {//active zone is empty
+        if (getActiveStart() == getUnprocessedStart() && !isFull()) {//active zone is empty
             return false;
         }
 
@@ -733,7 +730,7 @@ public:
     /// No Markers change
     bool fixPositionInvalid() {
         // std::cout<<"called invalid fix";
-        if (getActiveStart() == getUnprocessedStart() && !getFreeSign()) {//active zone is empty
+        if (getActiveStart() == getUnprocessedStart() && !isFull()) {//active zone is empty
             return false;
         }
 

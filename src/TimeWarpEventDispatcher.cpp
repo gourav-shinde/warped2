@@ -248,7 +248,7 @@ namespace warped
                 //     //this means its a straggler as well as negative, which means the next event is its +ve counterpart
                 //     rollback(event);
                 // }
-                // if (current_lp_id == 9541)
+                // if (current_lp_id == 1063)
                 // {
                 //     std::cout << "Event: " << event->timestamp() << std::endl;
                 //     if (last_processed_event != nullptr)
@@ -264,8 +264,9 @@ namespace warped
                 //     };
                 // }
 
-                if ((last_processed_event &&
-                     (event->timestamp() <= last_processed_event->timestamp())) ||
+                if ((last_processed_event!=nullptr &&
+                     ((*event < *last_processed_event) ||
+                        (*event == *last_processed_event))) ||
                     (event->event_type_ == EventType::NEGATIVE))
                 {
                     // if (current_lp_id == 9564)
@@ -545,9 +546,9 @@ namespace warped
         // std::cout<<"Coast Forwarding Events: "<<events->size()<<std::endl;
         for (auto event_itr = events->rbegin(); event_itr != events->rend(); ++event_itr)
         {
-            // assert(**event_itr <= *straggler_event);
+            assert(**event_itr <= *straggler_event);
             // This just updates state, ignore new events
-            // std::cout << "Coast Forwarding Event: " << itr->timestamp() << std::endl;
+            
             lp->receiveEvent(**event_itr);
             tw_stats_->upCount(COAST_FORWARDED_EVENTS, thread_id);
             // NOTE: Do not send any new events
