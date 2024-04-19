@@ -186,12 +186,10 @@ namespace warped
             local_gvt_flag = gvt_manager_->getLocalGVTFlag();
             
             std::shared_ptr<Event> event = event_set_->getEvent(thread_id);
-            // unsigned int current_lp_id = local_lp_id_by_name_[event->receiverName()];
-            // event_set_->acquireUnifiedQueueLock(current_lp_id);
-            // std::cout<<"got event\n";
+        
             if (event != nullptr)
             {
-                // std::cout<<"not null event\n";
+                
 #ifdef TIMEWARP_EVENT_LOG
                 // Event stat - start processing time, sender name, receiver name, timestamp
                 auto event_stats = std::to_string((std::chrono::steady_clock::now() - epoch).count());
@@ -217,9 +215,9 @@ namespace warped
                 LogicalProcess *current_lp = lps_by_name_[event->receiverName()];
 
                 // Get the last processed event so we can check for a rollback
-                event_set_->acquireUnifiedQueueLock(current_lp_id);
+                
                 auto last_processed_event = event_set_->lastProcessedEvent(current_lp_id);
-                event_set_->releaseUnifiedQueueLock(current_lp_id);
+                
 
                 // The rules with event processing
                 //      1. Negative events are given priority over positive events if they both exist
@@ -238,16 +236,8 @@ namespace warped
                 //      1. We get an event that is strictly less than the last processed event.
                 //      2. We get an event that is equal to the last processed event and is negative.
 
-                // force call fix position
-                //  bool rollback_condition = event_set_->fixPos(current_lp_id);
-
-                // if (last_processed_event &&
-                //         ((*event < *last_processed_event) ||
-                //             (*event == *last_processed_event)) &&
-                //              (event->event_type_ == EventType::NEGATIVE)){
-                //     //this means its a straggler as well as negative, which means the next event is its +ve counterpart
-                //     rollback(event);
-                // }
+               
+               
                 // if (current_lp_id == 1063)
                 // {
                 //     std::cout << "Event: " << event->timestamp() << std::endl;
@@ -269,32 +259,21 @@ namespace warped
                         (*event == *last_processed_event))) ||
                     (event->event_type_ == EventType::NEGATIVE))
                 {
-                    // if (current_lp_id == 9564)
-                    // {
-                    //     std::cout << "rollback called for" << event->timestamp() << std::endl;
-                    // }
-                    // event_set_->acquireUnifiedQueueLock(current_lp_id);
                     rollback(event);
-                    // event_set_->releaseUnifiedQueueLock(current_lp_id);
                 }
-                // event_set_->releaseUnifiedQueueLock(current_lp_id);
 
                 // Check to see if event is NEGATIVE and cancel
                 if (event->event_type_ == EventType::NEGATIVE)
                 {
-                    // event_set_->replenishScheduler(current_lp_id);
-                    // if (current_lp_id == 9564)
-                    // {
-                    //     std::cout << "Negative Event" << std::endl;
-                    // }
                     event_set_->startScheduling(current_lp_id);
                     tw_stats_->upCount(CANCELLED_EVENTS, thread_id);
                     continue;
                 }
 
                 // process event and get new events
+                // std::cerr<<"Processing Event: "<<event->timestamp()<<std::endl;
                 auto new_events = current_lp->receiveEvent(*event);
-                // std::cout<<"new events "<<new_events.size()<<std::endl;
+                
                 tw_stats_->upCount(EVENTS_PROCESSED, thread_id);
 
                 // Save state
@@ -402,15 +381,10 @@ namespace warped
         // std::cout<<"sending local event\n";
         // NOTE: Event is assumed to be less than the maximum simulation time.
 
-#ifdef UNIFIED_QUEUE
-        // event_set_->acquireUnifiedQueueLock(receiver_lp_id);
+
         auto status = event_set_->insertEvent(receiver_lp_id, event, thread_id);
-        // event_set_->releaseUnifiedQueueLock(receiver_lp_id);
-#else
-        event_set_->acquireInputQueueLock(receiver_lp_id);
-        auto status = event_set_->insertEvent(receiver_lp_id, event);
-        event_set_->releaseInputQueueLock(receiver_lp_id);
-#endif
+        
+
 
         // Make sure to track sends if we are in the middle of a GVT calculation.
         gvt_manager_->reportThreadSendMin(event->timestamp(), thread_id);
@@ -493,16 +467,20 @@ namespace warped
 
         event_set_->acquireUnifiedQueueLock(local_lp_id);
         event_set_->rollback(local_lp_id, straggler_event);
+
+        auto restored_state_event = state_manager_->restoreState(straggler_event, local_lp_id,
+                                                                 current_lp);
+        assert(restored_state_event);
+        assert(*restored_state_event < *straggler_event);
+        
+        coastForward(straggler_event, restored_state_event);
         event_set_->releaseUnifiedQueueLock(local_lp_id);
         
         
 
          
         // Restore state by getting most recent saved state before the straggler and coast forwarding.
-        auto restored_state_event = state_manager_->restoreState(straggler_event, local_lp_id,
-                                                                 current_lp);
-        assert(restored_state_event);
-        assert(*restored_state_event < *straggler_event);
+        
 
 
 
@@ -512,12 +490,6 @@ namespace warped
         {
             cancelEvents(std::move(events_to_cancel));
         }
-
-        //
-        
-        coastForward(straggler_event, restored_state_event);
-        
-        
         
     }
 
@@ -546,9 +518,8 @@ namespace warped
         // std::cout<<"Coast Forwarding Events: "<<events->size()<<std::endl;
         for (auto event_itr = events->rbegin(); event_itr != events->rend(); ++event_itr)
         {
-            assert(**event_itr <= *straggler_event);
+            assert(**event_itr < *straggler_event);
             // This just updates state, ignore new events
-            
             lp->receiveEvent(**event_itr);
             tw_stats_->upCount(COAST_FORWARDED_EVENTS, thread_id);
             // NOTE: Do not send any new events

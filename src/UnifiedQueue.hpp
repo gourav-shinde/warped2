@@ -377,21 +377,21 @@ public:
         if (low == high && isFull() == 0){
             return getUnprocessedStart();
         }
-        // return linearSearch(element, low, high);
+        return linearSearch(element, low, high);
 
         // // when there is no rotation in queue
-        if (low < high) {
-            return binarySearch(element, low, high);
-        }
-        // rotation i.e fossileStart_ < activeStart_
-        else {
-            if (compare_(element, queue_[capacity() - 1].getData())) {
-                return binarySearch(element, low, capacity() - 1);
-            }
-            else {
-                return binarySearch(element, 0, high);
-            }
-        }
+        // if (low < high) {
+        //     return binarySearch(element, low, high);
+        // }
+        // // rotation i.e fossileStart_ < activeStart_
+        // else {
+        //     if (compare_(element, queue_[capacity() - 1].getData())) {
+        //         return binarySearch(element, low, capacity() - 1);
+        //     }
+        //     else {
+        //         return binarySearch(element, 0, high);
+        //     }
+        // }
     }
 
 
@@ -548,6 +548,7 @@ public:
     bool isDataValid(uint64_t index){
         return queue_[index].isValid();
     }
+
 
     /// @brief fossil collect dummy function
     /// TODO pass a count to jump to
@@ -713,8 +714,8 @@ public:
         }
         
         if(swap_index_r != swap_index_l){
-            //sort call here
-        
+            //we dont call sort here so in case of negative event, we put in before the positive event,
+            //this sets unprocessed start to next index of straggler event
             return true;
         }
         

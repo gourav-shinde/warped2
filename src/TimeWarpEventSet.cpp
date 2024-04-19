@@ -287,6 +287,16 @@ namespace warped
                 
             }
         }
+        else{
+            //this is for positive straggler
+            //to prevent positive straggler event from being processed twice
+            if(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart()) == unified_queue_[lp_id]->getFreeStart()){
+                unified_queue_[lp_id]->setUnprocessedSign(true);
+            }
+            unified_queue_[lp_id]->setUnprocessedStart(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart()));
+
+        }
+        
         unified_queue_[lp_id]->sortQueue();
     }
 
@@ -300,7 +310,7 @@ namespace warped
         std::shared_ptr<Event> straggler_event,
         std::shared_ptr<Event> restored_state_event)
     {
-        unified_queue_[lp_id]->getlock();
+        
         // To avoid error if asserts are disabled
         unused(straggler_event);
 
@@ -328,21 +338,38 @@ namespace warped
             // unified_queue_[lp_id]->debug(true, 10);
             // printEvent(restored_state_event);
             // printEvent(straggler_event);
-            unified_queue_[lp_id]->releaseLock();
+            
             return events;
         }
+        
         unProcessedStart = unified_queue_[lp_id]->prevIndex(unProcessedStart);
+        if(straggler_event->event_type_ == EventType::POSITIVE){
+            //becoz we increament it in rollback if event is positive straggler
+            unProcessedStart = unified_queue_[lp_id]->prevIndex(unProcessedStart);
+        }
 
         
 
-        // compareEvents compare;
+        
       
-        while ( restored_state_event < unified_queue_[lp_id]->getValue(unProcessedStart) )
+        while ( restored_state_event < unified_queue_[lp_id]->getValue(unProcessedStart))
         {
-            // unified_queue_[lp_id]->debug();
+            compareEvents compare;
+            if(unified_queue_[lp_id]->isDataValid(unProcessedStart) &&  compare(straggler_event, unified_queue_[lp_id]->getValue(unProcessedStart))){
+                printEvent(straggler_event);
+                printEvent(unified_queue_[lp_id]->getValue(unProcessedStart));
+                printEvent(restored_state_event);
+                unified_queue_[lp_id]->debug();
+                abort();
+            }
+            
             // std::cout<<"unProcessedStart: "<<unProcessedStart<<"\n";
             if (unified_queue_[lp_id]->isDataValid(unProcessedStart))
             {
+                if(straggler_event == unified_queue_[lp_id]->getValue(unProcessedStart)){
+                    std::cerr<<"equal event in coast forward\n";
+                    abort();
+                }
                 events->push_back(unified_queue_[lp_id]->getValue(unProcessedStart));
                 if (unified_queue_[lp_id]->getValue(unProcessedStart)->event_type_ == EventType::NEGATIVE)
                 {
@@ -353,23 +380,16 @@ namespace warped
                 }
             }
             if(unProcessedStart == activeStart){
+                //worth taking a look at
                 break;
             }
             
             unProcessedStart = unified_queue_[lp_id]->prevIndex(unProcessedStart);
 
-            if(unified_queue_[lp_id]->getValue(unProcessedStart) ==nullptr){
-                std::cout<<"ERROR: null event in coast forward\n";
-                std::cout<<"lp_id: "<<lp_id<<"\n";
-                std::cout<<"unProcessedStart: "<<unProcessedStart<<"\n";
-                printEvent(restored_state_event);
-                printEvent(straggler_event);
-                unified_queue_[lp_id]->debug(true, 10);
-                abort();
-            }
+            
         }
         
-        unified_queue_[lp_id]->releaseLock();
+        
         return events;
     }
 
@@ -445,6 +465,7 @@ namespace warped
         // }
         if(scheduled_event_pointer_[lp_id] !=nullptr){
             schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
+            // reportEvent(scheduled_event_pointer_[lp_id], current_thread_id_);
         }
 
     }
@@ -508,6 +529,8 @@ namespace warped
         // this is for termination of the warped kernel
         if (fossil_collect_time == (unsigned int)-1)
         {
+            // unified_queue_[lp_id]->debug();
+            // std::cerr<<"\n";
             uint32_t activeStart = unified_queue_[lp_id]->getActiveStart();
             uint32_t unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
             uint32_t freeStart = unified_queue_[lp_id]->getFreeStart();
