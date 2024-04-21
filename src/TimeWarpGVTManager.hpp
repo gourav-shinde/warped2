@@ -81,13 +81,13 @@ public:
 
     virtual int64_t getMessageCount() = 0;
 
-    unsigned int getGVT() { return gvT_.getGVT(); }
+    unsigned int getGVT() { return gVT_; }
 
 protected:
     const std::shared_ptr<TimeWarpCommunicationManager> comm_manager_;
 
     unsigned int gVT_ = 0;
-    MinQueue gvT_;
+    // MinQueue gvT_;
     std::chrono::time_point<std::chrono::steady_clock> gvt_start;
 
     std::chrono::time_point<std::chrono::steady_clock> gvt_stop;

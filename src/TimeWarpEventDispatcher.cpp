@@ -198,10 +198,10 @@ namespace warped
                 event_stats += "," + std::to_string(event->timestamp());
 #endif
 
-                auto lowest_timestamp = event_set_->lowestTimestamp(thread_id);
+                // auto lowest_timestamp = event_set_->lowestTimestamp(thread_id);
 
                 // std::cout<<"lowest_timestamp: "<<lowest_timestamp<<std::endl;
-                gvt_manager_->reportThreadMin(lowest_timestamp, thread_id, local_gvt_flag);
+                
 
                 // Make sure that if this thread is currently seen as passive, we update it's state
                 //  so we don't terminate early.
@@ -216,7 +216,10 @@ namespace warped
 
                 // Get the last processed event so we can check for a rollback
                 
+                
                 auto last_processed_event = event_set_->lastProcessedEvent(current_lp_id);
+                
+                
                 
 
                 // The rules with event processing
@@ -262,10 +265,13 @@ namespace warped
                     rollback(event);
                 }
 
+                gvt_manager_->reportThreadMin(event_set_->lowestTimestamp(thread_id), thread_id, local_gvt_flag);
+                
+
                 // Check to see if event is NEGATIVE and cancel
                 if (event->event_type_ == EventType::NEGATIVE)
                 {
-                    event_set_->startScheduling(current_lp_id);
+                    event_set_->startScheduling(current_lp_id, thread_id);
                     tw_stats_->upCount(CANCELLED_EVENTS, thread_id);
                     continue;
                 }
@@ -287,7 +293,7 @@ namespace warped
                 // std::cout<<"gvt: "<<gvt<<std::endl;
                 if (gvt > current_lp->last_fossil_collect_gvt_)
                 {
-                    event_set_->resetThreadMin(thread_id);
+                    // event_set_->resetThreadMin(thread_id);
                     current_lp->last_fossil_collect_gvt_ = gvt;
 
                     // Fossil collect all queues for this lp
@@ -306,7 +312,7 @@ namespace warped
                 // Move the next event from lp into the schedule queue
                 // Also transfer old event to processed queue
 
-                event_set_->replenishScheduler(current_lp_id);
+                event_set_->replenishScheduler(current_lp_id, thread_id);
             }
             else
             {
@@ -460,7 +466,7 @@ namespace warped
         // We have major problems if we are rolling back past the GVT
         if (straggler_event->timestamp() < gvt_manager_->getGVT())
         {
-            std::cerr << "Rolling back past GVT: " << straggler_event->timestamp() << " > " << gvt_manager_->getGVT() << std::endl;
+            std::cerr << "Rolling back past GVT: " << straggler_event->timestamp() << " < " << gvt_manager_->getGVT() << std::endl;
             assert(false);
         }
 

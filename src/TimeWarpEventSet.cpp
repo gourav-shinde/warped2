@@ -84,12 +84,13 @@ namespace warped
         // assert(event!= nullptr);
         // assert(schedule_cycle_[thread_id] != nullptr);
 
-        if (event->timestamp() < schedule_cycle_[thread_id]->min)
+        if (event->timestamp() < schedule_cycle_[thread_id]->min.load())
         {
+            // std::cout<<"damn\n";
             schedule_cycle_[thread_id]->second_min.store(schedule_cycle_[thread_id]->min);
             schedule_cycle_[thread_id]->min.store(event->timestamp());
         }
-        else if (event->timestamp() < schedule_cycle_[thread_id]->second_min)
+        else if (event->timestamp() < schedule_cycle_[thread_id]->second_min.load())
         {
             schedule_cycle_[thread_id]->second_min.store(event->timestamp());
         }
@@ -131,12 +132,13 @@ namespace warped
 
         
         unused(insertPos);
+        // unused(thread_id);
         reportEvent(event, thread_id);
         
 
         if (scheduled_event_pointer_[lp_id] == nullptr)
         {
-            startScheduling(lp_id);
+            startScheduling(lp_id, thread_id);
             ret = InsertStatus::StarvedObject;
         }
 
@@ -184,6 +186,9 @@ namespace warped
 
     uint32_t TimeWarpEventSet::lowestTimestamp(unsigned int thread_id)
     {
+        if(schedule_cycle_[thread_id]->min.load() == INT32_MAX){
+            return 0;
+        }
         return schedule_cycle_[thread_id]->min.load();
     }
 
@@ -403,7 +408,7 @@ namespace warped
      */
 
     // pull out from unprocessed queue and insert into schedule queue
-    void TimeWarpEventSet::startScheduling(unsigned int lp_id)
+    void TimeWarpEventSet::startScheduling(unsigned int lp_id, uint32_t thread_id)
     {
 
         // Just simply add pointer to next event into the scheduler if input queue is not empty
@@ -421,6 +426,7 @@ namespace warped
             // }
             if(scheduled_event_pointer_[lp_id] !=nullptr){
                 schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
+                reportEvent(scheduled_event_pointer_[lp_id], thread_id);
             }
 
     }
@@ -433,7 +439,7 @@ namespace warped
      *
      *  NOTE: the scheduled_event_pointer is also protected by input queue lock
      */
-    void TimeWarpEventSet::replenishScheduler(unsigned int lp_id)
+    void TimeWarpEventSet::replenishScheduler(unsigned int lp_id, uint32_t thread_id)
     {
 
         // Something is completely wrong if there is no scheduled event because we obviously just
@@ -457,15 +463,10 @@ namespace warped
         // NOTE: A pointer to the scheduled event will remain in the input queue
         
         scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
-        // if(scheduled_event_pointer_[lp_id] == nullptr){
-        //     std::cerr<<"ERROR: scheduled event pointer is null\n";
-        //     std::cerr<<"lp_id: "<<lp_id<<"\n";
-        //     unified_queue_[lp_id]->debug(true, 10);
-        //     abort();
-        // }
+        
         if(scheduled_event_pointer_[lp_id] !=nullptr){
             schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
-            // reportEvent(scheduled_event_pointer_[lp_id], current_thread_id_);
+            reportEvent(scheduled_event_pointer_[lp_id], thread_id);
         }
 
     }

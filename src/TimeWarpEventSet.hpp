@@ -78,9 +78,9 @@ public:
                         std::shared_ptr<Event> straggler_event, 
                         std::shared_ptr<Event> restored_state_event);
 
-    void startScheduling (unsigned int lp_id);
+    void startScheduling (unsigned int lp_id, uint32_t thread_id);
 
-    void replenishScheduler (unsigned int lp_id);
+    void replenishScheduler (unsigned int lp_id, uint32_t thread_id);
 
     // we do not seem to use this function anywhere
     bool cancelEvent (unsigned int lp_id, std::shared_ptr<Event> cancel_event);
