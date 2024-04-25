@@ -659,13 +659,13 @@ public:
             std::sort(queue_.begin() + unprocessedStart_, queue_.begin() + freeStart_, [this](Data a, Data b) { return compare_(a.getData(), b.getData()); });
         }
         else{ //rotation
-            // vector<Data> tempQueue ;
-            // std::copy(queue_.begin() + unprocessedStart_, queue_.end(), tempQueue.begin());
-            // std::copy(queue_.begin(), queue_.begin() + freeStart_, tempQueue.end());
-            // std::sort(tempQueue.begin(), tempQueue.end(), sortfunction);
-            // //place the sorted queue back
-            // std::copy(tempQueue.begin(), tempQueue.begin()+(capacity()-unprocessedStart_), queue_.begin() + unprocessedStartMask_);
-            // std::copy(tempQueue.begin()+(capacity()-unprocessedStart_), tempQueue.end(), queue_.begin());
+            std::vector<Data> tempQueue ;
+            std::copy(queue_.begin() + unprocessedStart_, queue_.end(), tempQueue.begin());
+            std::copy(queue_.begin(), queue_.begin() + freeStart_, tempQueue.end());
+            std::sort(tempQueue.begin(), tempQueue.end(), [this](Data a, Data b) { return compare_(a.getData(), b.getData());});
+            //place the sorted queue back
+            std::copy(tempQueue.begin(), tempQueue.begin()+(capacity()-unprocessedStart_), queue_.begin() + unprocessedStartMask_);
+            std::copy(tempQueue.begin()+(capacity()-unprocessedStart_), tempQueue.end(), queue_.begin());
         }
     }
 

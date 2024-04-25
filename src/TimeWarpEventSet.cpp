@@ -68,14 +68,14 @@ namespace warped
         for (unsigned int i = 0; i <= num_of_worker_threads; i++)
         {
             // zero is not used as its main thread
-            schedule_cycle_.push_back(std::make_shared<ThreadMin>(INT32_MAX, INT32_MAX));
+            schedule_cycle_.push_back(std::make_shared<ThreadMin>(INT32_MAX));
         }
     }
 
     void TimeWarpEventSet::resetThreadMin(unsigned int thread_id)
     {
-        schedule_cycle_[thread_id]->min.store(schedule_cycle_[thread_id]->second_min);
-        schedule_cycle_[thread_id]->second_min.store(std::numeric_limits<uint32_t>::max());
+        std::cout<<INT32_MAX<<"\n";
+        schedule_cycle_[thread_id]->min.store(std::numeric_limits<uint32_t>::max());
     }
 
     void TimeWarpEventSet::reportEvent(std::shared_ptr<Event> event, uint16_t thread_id)
@@ -86,14 +86,14 @@ namespace warped
 
         if (event->timestamp() < schedule_cycle_[thread_id]->min.load())
         {
-            // std::cout<<"damn\n";
-            schedule_cycle_[thread_id]->second_min.store(schedule_cycle_[thread_id]->min);
             schedule_cycle_[thread_id]->min.store(event->timestamp());
-        }
-        else if (event->timestamp() < schedule_cycle_[thread_id]->second_min.load())
-        {
-            schedule_cycle_[thread_id]->second_min.store(event->timestamp());
-        }
+            // std::cerr<<event->timestamp()<<"\n";
+        } 
+    }
+
+    void TimeWarpEventSet::debugLPQueue(unsigned int lp_id)
+    {
+        unified_queue_[lp_id]->debug();
     }
 
     /*
@@ -169,8 +169,8 @@ namespace warped
         auto event = (event_iterator != schedule_queue_[thread_id]->end()) ? *event_iterator : nullptr;
         if (event != nullptr)
         {
-            schedule_queue_[thread_id]->erase(event_iterator);
             reportEvent(event, thread_id);
+            schedule_queue_[thread_id]->erase(event_iterator);
         }
 #endif
 

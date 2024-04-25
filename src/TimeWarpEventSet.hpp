@@ -35,10 +35,10 @@ enum class InsertStatus {
 
 struct ThreadMin {
     std::atomic<uint32_t> min;
-    std::atomic<uint32_t> second_min;
+    
     //define constructors
     ThreadMin(){ };
-    ThreadMin(uint32_t min, uint32_t second_min) : min(min), second_min(second_min) { };
+    ThreadMin(uint32_t min) : min(min){ };
     
 };
 
@@ -58,6 +58,8 @@ public:
     void acquireUnifiedQueueLock (unsigned int lp_id);
 
     void releaseUnifiedQueueLock (unsigned int lp_id);
+
+    void debugLPQueue (unsigned int lp_id);
 
 
     InsertStatus insertEvent (unsigned int lp_id, std::shared_ptr<Event> event, uint32_t thread_id);
@@ -97,7 +99,8 @@ public:
     //this is done
     unsigned int fossilCollect (unsigned int fossil_collect_time, unsigned int lp_id);
 
-
+    //made it public
+    std::vector<std::shared_ptr<ThreadMin>> schedule_cycle_;
 
 private:
     // Number of lps
@@ -157,7 +160,7 @@ private:
 
     
 
-    std::vector<std::shared_ptr<ThreadMin>> schedule_cycle_;
+    
 
     
 };

@@ -7,6 +7,7 @@
 #include <vector>
 #include <queue>
 
+#include "TimeWarpEventSet.hpp"
 #include "TimeWarpEventDispatcher.hpp"
 #include "TimeWarpKernelMessage.hpp"
 
@@ -18,7 +19,7 @@ private:
     uint32_t maxSize;
 
 public:
-    MinQueue(uint32_t size = 5) : maxSize(size) {
+    MinQueue(uint32_t size = 6) : maxSize(size) {
         push(0);//Initialize the queue with 0
     }
 
@@ -71,7 +72,7 @@ public:
     virtual Color sendEventUpdate(std::shared_ptr<Event>& event) = 0;
 
     virtual void reportThreadMin(unsigned int timestamp, unsigned int thread_id,
-                                 unsigned int local_gvt_flag) = 0;
+                                 unsigned int local_gvt_flag, std::vector<std::shared_ptr<ThreadMin>> &schedule_cycle) = 0;
 
     virtual void reportThreadSendMin(unsigned int timestamp, unsigned int thread_id) = 0;
 

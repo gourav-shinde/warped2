@@ -36,7 +36,7 @@ public:
     }
 
     void reportThreadMin(unsigned int timestamp, unsigned int thread_id,
-                                 unsigned int local_gvt_flag) override;
+                                 unsigned int local_gvt_flag, std::vector<std::shared_ptr<ThreadMin>> &schedule_cycle) override;
 
     void reportThreadSendMin(unsigned int timestamp, unsigned int thread_id) override;
 
@@ -60,6 +60,7 @@ protected:
     pthread_barrier_t gvt_barrier1_;
     pthread_barrier_t gvt_barrier2_;
     pthread_barrier_t gvt_barrier3_;
+    // pthread_barrier_t gvtSendEventsBarrier_;
 
 };
 

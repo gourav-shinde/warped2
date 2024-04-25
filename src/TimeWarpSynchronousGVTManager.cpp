@@ -13,6 +13,7 @@ void TimeWarpSynchronousGVTManager::initialize() {
     pthread_barrier_init(&gvt_barrier1_, NULL, num_worker_threads_+1);
     pthread_barrier_init(&gvt_barrier2_, NULL, num_worker_threads_+1);
     pthread_barrier_init(&gvt_barrier3_, NULL, num_worker_threads_+1);
+    // pthread_barrier_init(&gvtSendEventsBarrier_, NULL, num_worker_threads_+1);
 
     local_min_ = make_unique<unsigned int []>(num_worker_threads_+1);
     send_min_ = make_unique<unsigned int []>(num_worker_threads_+1);
@@ -52,17 +53,18 @@ void TimeWarpSynchronousGVTManager::progressGVT() {
                 break;
         }
         pthread_barrier_wait(&gvt_barrier2_);
+        // pthread_barrier_wait(&gvt_barrier2_);
 
         unsigned int local_min = recv_min_;
         recv_min_ = std::numeric_limits<unsigned int>::max();
-        for (unsigned int i = 0; i <= num_worker_threads_; i++) {
+        for (unsigned int i = 0; i < num_worker_threads_; i++) {
             // std::cerr<<i<<" "<<local_min_[i]<<" "<<send_min_[i]<<"\n";
             local_min = std::min(local_min, std::min(local_min_[i], send_min_[i]));
             local_min_[i] = std::numeric_limits<unsigned int>::max();
             send_min_[i] = std::numeric_limits<unsigned int>::max();
         }
         // std::cout<<local_min<<"\n";
-        // u_int32_t gvt_temp = 0;
+        // u_int32_t gvt_temp = INT32_MAX;
         // std::cerr<<"gvt is "<<gVT_<<"\n";
         comm_manager_->minAllReduceUint(&local_min, &gVT_);
         // std::cerr<<"new gvt is "<<gVT_<<"\n";
@@ -107,21 +109,24 @@ bool TimeWarpSynchronousGVTManager::gvtUpdated() {
     }
     return false;
 }
-
+//reset the thread min here?
 void TimeWarpSynchronousGVTManager::reportThreadMin(unsigned int timestamp, unsigned int thread_id,
-                                                    unsigned int local_gvt_flag) {
+                                                    unsigned int local_gvt_flag, std::vector<std::shared_ptr<ThreadMin>> &schedule_cycle) {
     if (local_gvt_flag > 0) {
         pthread_barrier_wait(&gvt_barrier1_);
         local_min_[thread_id] = timestamp;
+        schedule_cycle[thread_id]->min = INT32_MAX;
         pthread_barrier_wait(&gvt_barrier2_);
         pthread_barrier_wait(&gvt_barrier3_);
     }
 }
 
 void TimeWarpSynchronousGVTManager::reportThreadSendMin(unsigned int timestamp, unsigned int thread_id) {
-    if (local_gvt_flag_.load() > 0) {
+    // if (local_gvt_flag_.load() > 0) {
         send_min_[thread_id] = std::min(timestamp, send_min_[thread_id]);
-    }
+        // pthread_barrier_wait(&gvtSendEventsBarrier_);
+    // }
+    
 }
 
 unsigned int TimeWarpSynchronousGVTManager::getLocalGVTFlag() {

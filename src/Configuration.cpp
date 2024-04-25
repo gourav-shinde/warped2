@@ -25,7 +25,6 @@
 #include "ProfileGuidedPartitioner.hpp"
 #include "RoundRobinPartitioner.hpp"
 #include "SequentialEventDispatcher.hpp"
-#include "TimeWarpAsynchronousGVTManager.hpp"
 #include "TimeWarpSynchronousGVTManager.hpp"
 #include "TimeWarpEventDispatcher.hpp"
 #include "utility/memory.hpp"

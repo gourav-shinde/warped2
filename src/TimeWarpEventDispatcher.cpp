@@ -186,10 +186,10 @@ namespace warped
             local_gvt_flag = gvt_manager_->getLocalGVTFlag();
             
             std::shared_ptr<Event> event = event_set_->getEvent(thread_id);
-        
+
+              
             if (event != nullptr)
             {
-                
 #ifdef TIMEWARP_EVENT_LOG
                 // Event stat - start processing time, sender name, receiver name, timestamp
                 auto event_stats = std::to_string((std::chrono::steady_clock::now() - epoch).count());
@@ -197,12 +197,10 @@ namespace warped
                 event_stats += "," + event->receiverName();
                 event_stats += "," + std::to_string(event->timestamp());
 #endif
-
-                // auto lowest_timestamp = event_set_->lowestTimestamp(thread_id);
-
-                // std::cout<<"lowest_timestamp: "<<lowest_timestamp<<std::endl;
-                
-
+                //maybe report min(last_processed_event and event->timestamp())
+                gvt_manager_->reportThreadMin(event_set_->lowestTimestamp(thread_id), thread_id, local_gvt_flag, event_set_->schedule_cycle_);
+              
+              
                 // Make sure that if this thread is currently seen as passive, we update it's state
                 //  so we don't terminate early.
                 if (termination_manager_->threadPassive(thread_id))
@@ -218,7 +216,8 @@ namespace warped
                 
                 
                 auto last_processed_event = event_set_->lastProcessedEvent(current_lp_id);
-                
+                if(last_processed_event!=nullptr)
+                    event_set_->reportEvent(last_processed_event, thread_id);
                 
                 
 
@@ -256,7 +255,8 @@ namespace warped
                 //         std::cout << "Positive Event\n";
                 //     };
                 // }
-
+                
+                
                 if ((last_processed_event!=nullptr &&
                      ((*event < *last_processed_event) ||
                         (*event == *last_processed_event))) ||
@@ -265,7 +265,6 @@ namespace warped
                     rollback(event);
                 }
 
-                gvt_manager_->reportThreadMin(event_set_->lowestTimestamp(thread_id), thread_id, local_gvt_flag);
                 
 
                 // Check to see if event is NEGATIVE and cancel
@@ -287,12 +286,14 @@ namespace warped
 
                 // Send new events
                 sendEvents(event, new_events, current_lp_id, current_lp);
+                
 
                 // Check for recent gvt update
                 gvt = gvt_manager_->getGVT();
                 // std::cout<<"gvt: "<<gvt<<std::endl;
                 if (gvt > current_lp->last_fossil_collect_gvt_)
                 {
+                    // std::cout<<"gvt: "<<gvt<<" current_lp->last_fossil_collect_gvt_: "<<current_lp->last_fossil_collect_gvt_<<std::endl;
                     // event_set_->resetThreadMin(thread_id);
                     current_lp->last_fossil_collect_gvt_ = gvt;
 
@@ -313,6 +314,7 @@ namespace warped
                 // Also transfer old event to processed queue
 
                 event_set_->replenishScheduler(current_lp_id, thread_id);
+                
             }
             else
             {
@@ -324,7 +326,7 @@ namespace warped
 
                 // We must have this so that the GVT calculations can continue with passive threads.
                 // Just report infinite for a time.
-                gvt_manager_->reportThreadMin((unsigned int)-1, thread_id, local_gvt_flag);
+                gvt_manager_->reportThreadMin((unsigned int)-1, thread_id, local_gvt_flag, event_set_->schedule_cycle_);
             }
         }
     }
@@ -389,6 +391,7 @@ namespace warped
 
 
         auto status = event_set_->insertEvent(receiver_lp_id, event, thread_id);
+        // event_set_->reportEvent(event, thread_id);
         
 
 
@@ -467,6 +470,8 @@ namespace warped
         if (straggler_event->timestamp() < gvt_manager_->getGVT())
         {
             std::cerr << "Rolling back past GVT: " << straggler_event->timestamp() << " < " << gvt_manager_->getGVT() << std::endl;
+            //put debug statement here for debug
+            event_set_->debugLPQueue(local_lp_id);
             assert(false);
         }
 
