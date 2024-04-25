@@ -95,6 +95,8 @@ public:
     void resetThreadMin(unsigned int thread_id);
     bool fixPos(unsigned int lp_id);
 
+    std::shared_ptr<Event> getUnprocessedStartValue(unsigned int lp_id);
+
     
     //this is done
     unsigned int fossilCollect (unsigned int fossil_collect_time, unsigned int lp_id);
@@ -102,9 +104,12 @@ public:
     //made it public
     std::vector<std::shared_ptr<ThreadMin>> schedule_cycle_;
 
+    std::vector<uint32_t> lp_size_per_thread;
+
 private:
     // Number of lps
     unsigned int num_of_lps_ = 0;
+    
 
 #ifdef UNIFIED_QUEUE
     // This unifies input_queue and processed_queue
@@ -150,6 +155,7 @@ private:
     // LP Migration flag
     // you dont need this
     bool is_lp_migration_on_;
+    
 
 
     // Event scheduled from all lps

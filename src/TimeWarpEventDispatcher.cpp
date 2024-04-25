@@ -198,6 +198,15 @@ namespace warped
                 event_stats += "," + std::to_string(event->timestamp());
 #endif
                 //maybe report min(last_processed_event and event->timestamp())
+                //make if so if we are in gvt calculation all lp for same threadid are reported
+                //means we are in gvt calculation
+                if(local_gvt_flag > 0){
+                    //report every lp for this thread
+                    for (unsigned int lp_id = 0; lp_id < event_set_->lp_size_per_thread[thread_id]; lp_id++)
+                    {
+                        event_set_->reportEvent(event_set_->getUnprocessedStartValue(lp_id), thread_id);
+                    }
+                }
                 gvt_manager_->reportThreadMin(event_set_->lowestTimestamp(thread_id), thread_id, local_gvt_flag, event_set_->schedule_cycle_);
               
               
@@ -471,7 +480,9 @@ namespace warped
         {
             std::cerr << "Rolling back past GVT: " << straggler_event->timestamp() << " < " << gvt_manager_->getGVT() << std::endl;
             //put debug statement here for debug
+            std::cerr<<"lp_id: "<<local_lp_id<<std::endl;
             event_set_->debugLPQueue(local_lp_id);
+
             assert(false);
         }
 

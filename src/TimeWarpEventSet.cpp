@@ -42,10 +42,12 @@ namespace warped
         {
             for (unsigned int lp_id = 0; lp_id < lps[scheduler_id].size(); lp_id++)
             {
+                
                 unified_queue_.push_back(make_unique<UnifiedQueue<std::shared_ptr<Event>, compareEvents, compareNegativeEvent>>());
                 scheduled_event_pointer_.push_back(nullptr);
                 input_queue_scheduler_map_.push_back(scheduler_id);
             }
+            lp_size_per_thread.push_back(lps[scheduler_id].size());
         }
 
         /* Create the schedule queues */
@@ -71,6 +73,13 @@ namespace warped
             schedule_cycle_.push_back(std::make_shared<ThreadMin>(INT32_MAX));
         }
     }
+    
+
+    std::shared_ptr<Event> TimeWarpEventSet::getUnprocessedStartValue(unsigned int lp_id)
+    {
+        return unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart());
+    }
+    
 
     void TimeWarpEventSet::resetThreadMin(unsigned int thread_id)
     {
@@ -84,7 +93,7 @@ namespace warped
         // assert(event!= nullptr);
         // assert(schedule_cycle_[thread_id] != nullptr);
 
-        if (event->timestamp() < schedule_cycle_[thread_id]->min.load())
+        if (event!=nullptr && event->timestamp() < schedule_cycle_[thread_id]->min.load())
         {
             schedule_cycle_[thread_id]->min.store(event->timestamp());
             // std::cerr<<event->timestamp()<<"\n";
@@ -130,10 +139,14 @@ namespace warped
         //     std::cout<<event->timestamp()<<" at "<<insertPos<<std::endl;
         // }
 
+        // if(lp_id == 4715){
+        //             std::cerr<<"inserted "<<event->timestamp()<<"\n";
+        // }
+
         
         unused(insertPos);
         // unused(thread_id);
-        reportEvent(event, thread_id);
+        reportEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()), thread_id);
         
 
         if (scheduled_event_pointer_[lp_id] == nullptr)
@@ -425,6 +438,9 @@ namespace warped
             //     abort();
             // }
             if(scheduled_event_pointer_[lp_id] !=nullptr){
+                // if(lp_id == 4715){
+                //     std::cerr<<"dequeued "<<scheduled_event_pointer_[lp_id]->timestamp()<<"\n";
+                // }
                 schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
                 reportEvent(scheduled_event_pointer_[lp_id], thread_id);
             }
@@ -465,6 +481,9 @@ namespace warped
         scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
         
         if(scheduled_event_pointer_[lp_id] !=nullptr){
+            // if(lp_id == 4715){
+            //         std::cerr<<"dequeued "<<scheduled_event_pointer_[lp_id]->timestamp()<<"\n";
+            // }
             schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
             reportEvent(scheduled_event_pointer_[lp_id], thread_id);
         }

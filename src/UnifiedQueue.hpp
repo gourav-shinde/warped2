@@ -78,8 +78,8 @@ private:
     // bool sortfunction(Data a, Data b) { return compare_(a.getData(), b.getData()); };
     
 public:
-    UnifiedQueue(uint16_t capacity=1024){
-        if(capacity > 1024){
+    UnifiedQueue(uint16_t capacity=2048){
+        if(capacity > 2048){
             throw std::invalid_argument("Capacity should be less than 1024");
         }
         queue_.resize(capacity); 
