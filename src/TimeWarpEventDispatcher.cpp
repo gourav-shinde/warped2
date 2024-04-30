@@ -200,12 +200,26 @@ namespace warped
                 //maybe report min(last_processed_event and event->timestamp())
                 //make if so if we are in gvt calculation all lp for same threadid are reported
                 //means we are in gvt calculation
+                //report last processed event for all lp for this thread
                 if(local_gvt_flag > 0){
                     //report every lp for this thread
-                    for (unsigned int lp_id = 0; lp_id < event_set_->lp_size_per_thread[thread_id]; lp_id++)
-                    {
-                        event_set_->reportEvent(event_set_->getUnprocessedStartValue(lp_id), thread_id);
+                    if(thread_id == 0){
+                        for (uint32_t lp_id_num = 0; lp_id_num < event_set_->lp_size_per_thread[thread_id]; lp_id_num++)
+                        {   
+                            // event_set_->acquireUnifiedQueueLock(lp_id_num);
+                            event_set_->reportLastUnprocessedEvent(lp_id_num, thread_id);
+                            // event_set_->releaseUnifiedQueueLock(lp_id_num);
+                        }
                     }
+                    else{
+                        for (uint32_t lp_id_num = event_set_->lp_size_per_thread[thread_id-1]; lp_id_num < event_set_->lp_size_per_thread[thread_id]; lp_id_num++)
+                        {   
+                            // event_set_->acquireUnifiedQueueLock(lp_id_num);
+                            event_set_->reportLastUnprocessedEvent(lp_id_num, thread_id);
+                            // event_set_->releaseUnifiedQueueLock(lp_id_num);
+                        }
+                    }
+                    
                 }
                 gvt_manager_->reportThreadMin(event_set_->lowestTimestamp(thread_id), thread_id, local_gvt_flag, event_set_->schedule_cycle_);
               
@@ -225,8 +239,7 @@ namespace warped
                 
                 
                 auto last_processed_event = event_set_->lastProcessedEvent(current_lp_id);
-                if(last_processed_event!=nullptr)
-                    event_set_->reportEvent(last_processed_event, thread_id);
+                
                 
                 
 

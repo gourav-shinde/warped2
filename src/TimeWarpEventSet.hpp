@@ -93,7 +93,8 @@ public:
     //reports event to calculate min timestamp
     void reportEvent (std::shared_ptr<Event> event, uint16_t thread_id);
     void resetThreadMin(unsigned int thread_id);
-    bool fixPos(unsigned int lp_id);
+    
+    void reportLastUnprocessedEvent (uint32_t lp_id, uint32_t thread_id);
 
     std::shared_ptr<Event> getUnprocessedStartValue(unsigned int lp_id);
 

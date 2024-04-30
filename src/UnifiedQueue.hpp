@@ -415,38 +415,32 @@ public:
         enqueue_counter_++;
         uint64_t insertPos = getUnprocessedStart();
         
-            if (isFull()){
-                //throw message
-                this->debug();
-                std::cout << "Queue is full" << std::endl;
-                // std::__throw_bad_exception();
-                std::cout<<"Enqueue Counter: "<<enqueue_counter_<<std::endl;
-                std::cout<<"Dequeue Counter: "<<dequeue_counter_<<std::endl;
-                std::cout<<"Rollback Counter: "<<rollback_counter_<<std::endl;
-                std::cout<<"Rollback Function Counter: "<<rollback_function_counter_<<std::endl;
-                abort();
-            }
+        if (isFull()){
+            //throw message
+            this->debug();
+            std::cout << "Queue is full" << std::endl;
+            // std::__throw_bad_exception();
+            std::cout<<"Enqueue Counter: "<<enqueue_counter_<<std::endl;
+            std::cout<<"Dequeue Counter: "<<dequeue_counter_<<std::endl;
+            std::cout<<"Rollback Counter: "<<rollback_counter_<<std::endl;
+            std::cout<<"Rollback Function Counter: "<<rollback_function_counter_<<std::endl;
+            abort();
+        }
 
-           uint64_t marker = marker_.load(std::memory_order_relaxed);
-           uint64_t markerCopy = marker;
-           if(nextIndex(FreeStart(marker)) == ActiveStart(marker)){//queue will become full after this insert
-                //set freeSign_ to 1
-                setFreeSign(1);
-            }
-            setUnprocessedSignMarker(marker, 0);
-            setFreeStartMarker(marker, nextIndex(FreeStart(marker)));
+        uint64_t marker = marker_.load(std::memory_order_relaxed);
+        uint64_t markerCopy = marker;
+        if(nextIndex(FreeStart(marker)) == ActiveStart(marker)){//queue will become full after this insert
+            //set freeSign_ to 1
+            setFreeSign(1);
+        }
+        setUnprocessedSignMarker(marker, 0);
+        setFreeStartMarker(marker, nextIndex(FreeStart(marker)));
              
-        ;
         //FOR OUT OF ORDER LOGIC
         if(isEmpty()){//queue is empty
-            while (marker_.compare_exchange_weak(
-                    markerCopy, marker,
-                    std::memory_order_release, std::memory_order_relaxed)){
-                queue_[UnprocessedStart(markerCopy)] = element;
-                insertPos = UnprocessedStart(markerCopy);
-            }
-            
-            
+            marker_ = marker;
+            queue_[UnprocessedStart(markerCopy)] = element;
+            insertPos = UnprocessedStart(markerCopy);
         }
         else{
             // uint64_t UnprocessedStart = UnprocessedStart(markerCopy);
@@ -465,10 +459,7 @@ public:
                     marker_ = marker;
                     shiftElements(insertPos, FreeStart(markerCopy));
                     queue_[insertPos] = element;
-                    
-                    
                 }
-
             }
             else{
                 marker_ = marker;
@@ -549,43 +540,6 @@ public:
         return queue_[index].isValid();
     }
 
-
-    /// @brief fossil collect dummy function
-    /// TODO pass a count to jump to
-    bool increamentActiveStart(){
-        bool success = false;
-        //checks first
-
-        while(!success){
-            if (isEmpty()){
-                //throw message
-                std::cout << "Queue is empty" << std::endl;
-                return false;
-            }
-            if(getActiveStart() == getUnprocessedStart()){
-                std::cout << "Active Zone is Empty" << std::endl;
-                return false;
-            }
-            uint64_t marker = marker_.load(std::memory_order_relaxed);
-            uint64_t markerCopy = marker;
-            setFreeSignMarker(marker, 0);
-            setActiveStartMarker(marker, nextIndex(ActiveStart(marker)));
-            #ifdef GTEST_FOUND
-                std::cout<<"increamentActiveStart called "<<std::endl;
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            #endif
-            while (marker_.compare_exchange_weak(
-                    markerCopy, marker,
-                    std::memory_order_release, std::memory_order_relaxed)){
-                    #ifdef GTEST_FOUND
-                        std::cout<<"increamentActiveStart success at "<<ActiveStart(markerCopy)<<std::endl;
-                    #endif
-                    success = true;
-            }
-        }
-        return true;
-    }
-
     /// @brief find function return type
     enum FindStatus {
         ACTIVE,
@@ -660,6 +614,7 @@ public:
         }
         else{ //rotation
             std::vector<Data> tempQueue ;
+            debug();
             std::copy(queue_.begin() + unprocessedStart_, queue_.end(), tempQueue.begin());
             std::copy(queue_.begin(), queue_.begin() + freeStart_, tempQueue.end());
             std::sort(tempQueue.begin(), tempQueue.end(), [this](Data a, Data b) { return compare_(a.getData(), b.getData());});
@@ -769,12 +724,14 @@ public:
         // element=queue_[index].getData();
         do{
             element=queue_[prevIndex(index)].getData();
+            
             if(queue_[prevIndex(index)].isValid()){
                 break;
             }
             index=prevIndex(index);
            
         }while(getActiveStart()!=index); // this can be Infinite if all elements are invalid
+        
         return element;
         
     }

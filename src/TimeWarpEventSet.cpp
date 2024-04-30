@@ -92,11 +92,9 @@ namespace warped
         // std::cout<<thread_id<<"\n";
         // assert(event!= nullptr);
         // assert(schedule_cycle_[thread_id] != nullptr);
-
-        if (event!=nullptr && event->timestamp() < schedule_cycle_[thread_id]->min.load())
+        if (event!=nullptr)
         {
-            schedule_cycle_[thread_id]->min.store(event->timestamp());
-            // std::cerr<<event->timestamp()<<"\n";
+            schedule_cycle_[thread_id]->min.store(std::min(schedule_cycle_[thread_id]->min.load(), event->timestamp()));
         } 
     }
 
@@ -115,11 +113,7 @@ namespace warped
     {
 
         auto ret = InsertStatus::Success;
-        // if(lp_id == 1063){
-        //     std::cout<<"lp_id "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
-        //     unified_queue_[lp_id]->debug(true, 0);
-        // }
-        // std::cout<<"Insert event\n";
+        
         uint64_t insertPos{0};
         if (event->event_type_ == EventType::NEGATIVE)
         {
@@ -129,24 +123,24 @@ namespace warped
         {
             insertPos = unified_queue_[lp_id]->enqueue(event);
         }
-        // if(lp_id == 1063 ){
+        // if(lp_id == 3338 ){
         //     std::cout<<"afterlp_id "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
         //     // unified_queue_[lp_id]->debug(true, 5);
-        //     std::cout<<"inserted ";
-        //     if(event->event_type_ == EventType::NEGATIVE){
-        //         std::cout<<"-ve ";
-        //     }
-        //     std::cout<<event->timestamp()<<" at "<<insertPos<<std::endl;
+        //     // std::cout<<"inserted ";
+        //     // if(event->event_type_ == EventType::NEGATIVE){
+        //     //     std::cout<<"-ve ";
+        //     // }
+        //     // std::cout<<event->timestamp()<<" at "<<insertPos<<std::endl;
         // }
 
-        // if(lp_id == 4715){
-        //             std::cerr<<"inserted "<<event->timestamp()<<"\n";
+        // if(lp_id == 6715){
+        //     std::cerr<<"inserted "<<event->timestamp()<<"\n";
         // }
 
         
         unused(insertPos);
         // unused(thread_id);
-        reportEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()), thread_id);
+        // reportEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()), thread_id);
         
 
         if (scheduled_event_pointer_[lp_id] == nullptr)
@@ -225,10 +219,18 @@ namespace warped
         return unified_queue_[lp_id]->getNextUnprocessedEvent();
     }
 
-    bool TimeWarpEventSet::fixPos(unsigned int lp_id)
-    {
-        return unified_queue_[lp_id]->fixPosition();
+    void TimeWarpEventSet::reportLastUnprocessedEvent(uint32_t lp_id, uint32_t thread_id)
+    {   
+        // if(lp_id == 9430 && unified_queue_[lp_id]->getPreviousUnprocessedEvent() != nullptr){
+        //     std::cerr<<unified_queue_[lp_id]->getPreviousUnprocessedEvent()->timestamp()<<" "<<lp_id<<"\n";
+        // }
+        // else if(lp_id == 9430){
+        //     std::cerr<<"null event at 9430\n";
+        //     unified_queue_[lp_id]->debug(true,3);
+        // }
+        reportEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart())), thread_id);
     }
+    
     /*
      *  NOTE: caller must have the input queue lock for the lp with id lp_id
      */
@@ -313,6 +315,10 @@ namespace warped
             }
             unified_queue_[lp_id]->setUnprocessedStart(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart()));
 
+        }
+        // if(unprocessedStart_ < freeStart_){
+        if(unified_queue_[lp_id]->getUnprocessedStart() > unified_queue_[lp_id]->getFreeStart()){
+            std::cout<<"lp_id "<<lp_id<<"\n";
         }
         
         unified_queue_[lp_id]->sortQueue();
@@ -438,8 +444,8 @@ namespace warped
             //     abort();
             // }
             if(scheduled_event_pointer_[lp_id] !=nullptr){
-                // if(lp_id == 4715){
-                //     std::cerr<<"dequeued "<<scheduled_event_pointer_[lp_id]->timestamp()<<"\n";
+                // if(lp_id == 6715){
+                //     std::cout<<"dequeue "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
                 // }
                 schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
                 reportEvent(scheduled_event_pointer_[lp_id], thread_id);
@@ -481,8 +487,8 @@ namespace warped
         scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
         
         if(scheduled_event_pointer_[lp_id] !=nullptr){
-            // if(lp_id == 4715){
-            //         std::cerr<<"dequeued "<<scheduled_event_pointer_[lp_id]->timestamp()<<"\n";
+            // if(lp_id == 6715){
+            //        std::cout<<"dequeue "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
             // }
             schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
             reportEvent(scheduled_event_pointer_[lp_id], thread_id);
@@ -591,6 +597,7 @@ namespace warped
         //  discuss this with sounak,
         // going with this route as this is also thread safe atomic operation
         uint64_t activeStart = unified_queue_[lp_id]->getActiveStart();
+        
         while (unified_queue_[lp_id]->getValue(activeStart)->timestamp() <= fossil_collect_time &&
                unified_queue_[lp_id]->nextIndex(activeStart) != unified_queue_[lp_id]->nextIndex((unified_queue_[lp_id]->getUnprocessedStart())))
         {
@@ -608,7 +615,11 @@ namespace warped
             }
             unified_queue_[lp_id]->getValue(activeStart).reset();
         }
+        if(activeStart != unified_queue_[lp_id]->getActiveStart()){
+            unified_queue_[lp_id]->setFreeSign(0);
+        }
         unified_queue_[lp_id]->setActiveStart(activeStart);
+        
         unified_queue_[lp_id]->releaseLock();
         return count;
     }
