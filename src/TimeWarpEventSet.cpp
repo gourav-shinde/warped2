@@ -228,7 +228,13 @@ namespace warped
         //     std::cerr<<"null event at 9430\n";
         //     unified_queue_[lp_id]->debug(true,3);
         // }
-        reportEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart())), thread_id);
+        if(unified_queue_[lp_id]->getPreviousUnprocessedEvent() == nullptr){
+            reportEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart())), thread_id);
+        }
+        else{
+            reportEvent(unified_queue_[lp_id]->getPreviousUnprocessedEvent(), thread_id);
+        }
+        
     }
     
     /*
