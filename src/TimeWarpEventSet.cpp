@@ -95,7 +95,10 @@ namespace warped
         if (event!=nullptr)
         {
             schedule_cycle_[thread_id]->min.store(std::min(schedule_cycle_[thread_id]->min.load(), event->timestamp()));
-        } 
+        }
+        else{
+            schedule_cycle_[thread_id]->min.store(std::min(schedule_cycle_[thread_id]->min.load(), (uint32_t)0));
+        }
     }
 
     void TimeWarpEventSet::debugLPQueue(unsigned int lp_id)
@@ -228,12 +231,9 @@ namespace warped
         //     std::cerr<<"null event at 9430\n";
         //     unified_queue_[lp_id]->debug(true,3);
         // }
-        if(unified_queue_[lp_id]->getPreviousUnprocessedEvent() == nullptr){
-            reportEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart())), thread_id);
-        }
-        else{
-            reportEvent(unified_queue_[lp_id]->getPreviousUnprocessedEvent(), thread_id);
-        }
+        
+        reportEvent(unified_queue_[lp_id]->getPreviousUnprocessedEvent(), thread_id);
+        
         
     }
     
