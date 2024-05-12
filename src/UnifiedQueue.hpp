@@ -3,6 +3,7 @@
 #include <vector>
 #include <cmath>
 #include <stdexcept>
+#include "CircularVectorIterator.hpp"
 #include "Event.hpp"
 
 #include <chrono>
@@ -43,18 +44,22 @@ class UnifiedQueue
             valid_ = false;
         }
 
+        void validate(){
+            valid_ = true;
+        }
+
         bool isValid(){
             return valid_;
         }
     };
 private:
     std::vector<Data> queue_;
-    // 10 bits activeStart_, 1bit unprocessedSign, 10 bits unprocessedStart_, 1 bit freeSign, 10 bits freeStart_
-    // freeStart bit 0-9,           0x000003FF no shifting needed
-    // freeSign bit 10,             0x00000400
-    // unprocessedStart bit 11-20   0x001FF800  shift by 11
-    // unprocessedSign bit 21       0x00200000
-    // activeStart bit 22-31        0xFFC00000  shift by 22
+    // 16 bits activeStart_, 1bit unprocessedSign, 16 bits unprocessedStart_, 1 bit freeSign, 16 bits freeStart_
+    // freeStart bit 0-16,           0x000000000000FFFF no shifting needed
+    // freeSign bit 17,             0x0000000000010000
+    // unprocessedStart bit 18-33   0x00000001FFFE0000  shift by 17
+    // unprocessedSign bit 34       0x0000000200000000
+    // activeStart bit 34-50        0x0003FFFC00000000  shift by 34
     //create variable for shifts too
 
     //define masks
@@ -75,6 +80,7 @@ private:
     comparator compare_; //currently not  used, as we are not sorting anymore
     negativeCounterPart negativeCounterPart_; //used to find negative counterpart
     std::mutex lock_;
+    uint32_t capacity_;
     // bool sortfunction(Data a, Data b) { return compare_(a.getData(), b.getData()); };
     
 public:
@@ -83,6 +89,7 @@ public:
             throw std::invalid_argument("Capacity should be less than 1024");
         }
         queue_.resize(capacity); 
+        capacity_ = capacity;
         //init condition is 0,0,0
         marker_.store(0, std::memory_order_relaxed);
     }
@@ -161,7 +168,7 @@ public:
 
     //getCapacity
     uint64_t capacity(){
-        return queue_.size();
+        return capacity_;
     }
 
     //preIndex
@@ -359,6 +366,8 @@ public:
         while (i != high) {
             if(queue_[i].getData() == nullptr){
                 debug();
+                std::cout<<"Queue is corrupted"<<std::endl;
+                abort();
             }
             if (this->compare_(element, queue_[i].getData())) {
                 return i;
@@ -392,6 +401,11 @@ public:
         //         return binarySearch(element, 0, high);
         //     }
         // }
+    }
+
+    void deleteIndex(uint64_t index){
+        queue_[index].validate();
+        queue_[index].getData().reset();
     }
 
 
@@ -431,7 +445,7 @@ public:
         uint64_t markerCopy = marker;
         if(nextIndex(FreeStart(marker)) == ActiveStart(marker)){//queue will become full after this insert
             //set freeSign_ to 1
-            setFreeSign(1);
+            setFreeSignMarker(marker,1);
         }
         setUnprocessedSignMarker(marker, 0);
         setFreeStartMarker(marker, nextIndex(FreeStart(marker)));
@@ -448,6 +462,9 @@ public:
             // unused(FreeStart);
             // unused(UnprocessedStart);
             insertPos = findInsertPosition(element, UnprocessedStart(markerCopy), FreeStart(markerCopy));
+            if(insertPos ==INT32_MAX-1){
+                return insertPos;
+            }
             if(negative){
                 if(queue_[insertPos].getData()!=nullptr && negativeCounterPart_(queue_[insertPos].getData(), element)){
                     queue_[insertPos].invalidate();
@@ -467,6 +484,16 @@ public:
                 queue_[insertPos] = element;  
             }
         }
+
+        // if(!queue_[prevIndex(FreeStart(marker))].isValid()){
+        //     setFreeStart(prevIndex(FreeStart(marker)));
+        //     setFreeSign(false);
+        //     if(getFreeStart() == getUnprocessedStart()){
+        //         setUnprocessedSign(true);
+        //     }
+            
+        //     deleteIndex(getFreeStart());
+        // }
         
         
         
@@ -605,7 +632,29 @@ public:
 
     }
 
+
+    //sorting a portion of the buffer
+    //issue with this is if the unprocessed zone is the whole queue, this sorting doesnt work i am hoping this condition never happens, will put a check
+    void sortPortion(uint32_t start, uint32_t end) {
+        int sortedRange = (int(end - start) + capacity()) % capacity();
+        if(end ==start){
+            std::cerr<<"Unprocessed queue is the whole queue rotated sort aborted\n";
+        }
+        // Custom comparator function for sorting
+        auto comp =  [&](Data& a, Data& b) { 
+            return (compare_(a.getData(), b.getData()));
+        };
+        
+
+        
+        auto it = make_circular_iterator(queue_, start);
+        std::sort(it, it + sortedRange, comp);
+    }
+
     void sortQueue(){
+        if(isUnprocessedZoneEmpty()){
+            return;
+        }
         uint64_t unprocessedStart_ = getUnprocessedStart();
         uint64_t freeStart_ = getFreeStart();
 
@@ -613,14 +662,7 @@ public:
             std::sort(queue_.begin() + unprocessedStart_, queue_.begin() + freeStart_, [this](Data a, Data b) { return compare_(a.getData(), b.getData()); });
         }
         else{ //rotation
-            std::vector<Data> tempQueue ;
-            debug();
-            std::copy(queue_.begin() + unprocessedStart_, queue_.end(), tempQueue.begin());
-            std::copy(queue_.begin(), queue_.begin() + freeStart_, tempQueue.end());
-            std::sort(tempQueue.begin(), tempQueue.end(), [this](Data a, Data b) { return compare_(a.getData(), b.getData());});
-            //place the sorted queue back
-            std::copy(tempQueue.begin(), tempQueue.begin()+(capacity()-unprocessedStart_), queue_.begin() + unprocessedStartMask_);
-            std::copy(tempQueue.begin()+(capacity()-unprocessedStart_), tempQueue.end(), queue_.begin());
+            sortPortion(unprocessedStart_, freeStart_);
         }
     }
 

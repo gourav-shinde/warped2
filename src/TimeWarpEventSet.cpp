@@ -103,6 +103,7 @@ namespace warped
 
     void TimeWarpEventSet::debugLPQueue(unsigned int lp_id)
     {
+        // unused(lp_id);
         unified_queue_[lp_id]->debug();
     }
 
@@ -126,25 +127,15 @@ namespace warped
         {
             insertPos = unified_queue_[lp_id]->enqueue(event);
         }
-        // if(lp_id == 3338 ){
-        //     std::cout<<"afterlp_id "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
-        //     // unified_queue_[lp_id]->debug(true, 5);
-        //     // std::cout<<"inserted ";
-        //     // if(event->event_type_ == EventType::NEGATIVE){
-        //     //     std::cout<<"-ve ";
-        //     // }
-        //     // std::cout<<event->timestamp()<<" at "<<insertPos<<std::endl;
-        // }
-
-        // if(lp_id == 6715){
-        //     std::cerr<<"inserted "<<event->timestamp()<<"\n";
-        // }
+        
 
         
         unused(insertPos);
-        // unused(thread_id);
-        // reportEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()), thread_id);
         
+
+
+        auto ret = InsertStatus::SchedEventSwapSuccess;
+
 
         if (scheduled_event_pointer_[lp_id] == nullptr)
         {
@@ -207,10 +198,7 @@ namespace warped
      */
     std::shared_ptr<Event> TimeWarpEventSet::lastProcessedEvent(unsigned int lp_id)
     {
-        // if(lp_id == 1063){
-        //     std::cout<<"lastProcessedEvent called\n";
-        //     unified_queue_[lp_id]->debug(true, 3);
-        // }
+       
         return unified_queue_[lp_id]->getPreviousUnprocessedEvent();
     }
 
@@ -246,21 +234,11 @@ namespace warped
         // Every event GREATER OR EQUAL to straggler event must remove from the processed queue and
         // reinserted back into input queue.
         // EQUAL will ensure that a negative message will properly be cancelled out.
-        
+      
         unified_queue_[lp_id]->fixPosition();
         
         
         
-
-        // unused(straggler_event);
-        // if(lp_id == 8683){
-        //     unified_queue_[lp_id]->debug(true, 10);
-        //     unified_queue_[lp_id]->fixPosition(true);
-        // }
-        // else{
-            
-        // }
-        // unified_queue_[lp_id]->fixPosition();
 
         if (straggler_event->event_type_ == EventType::NEGATIVE)
         {
@@ -328,6 +306,7 @@ namespace warped
         }
         
         unified_queue_[lp_id]->sortQueue();
+        
     }
 
     /*
@@ -398,6 +377,9 @@ namespace warped
             {
                 if(straggler_event == unified_queue_[lp_id]->getValue(unProcessedStart)){
                     std::cerr<<"equal event in coast forward\n";
+                    printEvent(straggler_event);
+                    printEvent(unified_queue_[lp_id]->getValue(unProcessedStart));
+                    std::cerr<<lp_id<<"\n";
                     abort();
                 }
                 events->push_back(unified_queue_[lp_id]->getValue(unProcessedStart));
@@ -442,6 +424,9 @@ namespace warped
 
         
             scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
+            // if(lp_id ==  4436){
+            //     unified_queue_[lp_id]->debug(true, 0);
+            // }
             unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
             // if(scheduled_event_pointer_[lp_id] == nullptr){
             //     std::cerr<<"ERROR: scheduled event pointer is null\n";
@@ -454,6 +439,7 @@ namespace warped
                 //     std::cout<<"dequeue "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
                 // }
                 schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
+
                 reportEvent(scheduled_event_pointer_[lp_id], thread_id);
             }
 
@@ -491,6 +477,10 @@ namespace warped
         // NOTE: A pointer to the scheduled event will remain in the input queue
         
         scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
+
+        // if(lp_id ==  4436){
+        //         unified_queue_[lp_id]->debug(true, 0);
+        // }
         
         if(scheduled_event_pointer_[lp_id] !=nullptr){
             // if(lp_id == 6715){
@@ -561,8 +551,7 @@ namespace warped
         // this is for termination of the warped kernel
         if (fossil_collect_time == (unsigned int)-1)
         {
-            // unified_queue_[lp_id]->debug();
-            // std::cerr<<"\n";
+            
             uint32_t activeStart = unified_queue_[lp_id]->getActiveStart();
             uint32_t unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
             uint32_t freeStart = unified_queue_[lp_id]->getFreeStart();
@@ -588,12 +577,15 @@ namespace warped
                 
                 if (unified_queue_[lp_id]->isDataValid(activeStart)  && unified_queue_[lp_id]->getValue(activeStart)->event_type_ == EventType::NEGATIVE)
                 {
-                    std::cerr<<"lp_id "<<lp_id<<"index "<<activeStart<<"\n";
+                   
+                    std::cerr<<"lp_id "<<lp_id<<"\n";
+                    std::cerr<<"index "<<activeStart<<"\n";
                     std::cerr<<"found a -ve with valid marker\n";
                     unified_queue_[lp_id]->debug();
                 }
+                unified_queue_[lp_id]->deleteIndex(activeStart);
                 activeStart = unified_queue_[lp_id]->nextIndex(activeStart);
-                unified_queue_[lp_id]->getValue(activeStart).reset();
+                
             }
             unified_queue_[lp_id]->releaseLock();
             return count;
@@ -607,19 +599,24 @@ namespace warped
         while (unified_queue_[lp_id]->getValue(activeStart)->timestamp() <= fossil_collect_time &&
                unified_queue_[lp_id]->nextIndex(activeStart) != unified_queue_[lp_id]->nextIndex((unified_queue_[lp_id]->getUnprocessedStart())))
         {
-            activeStart = unified_queue_[lp_id]->nextIndex(activeStart);
+            // if(lp_id ==  2118){
+            //     unified_queue_[lp_id]->debug(true, 0);
+            // }
+            
             if (unified_queue_[lp_id]->isDataValid(activeStart))
             {
                 count++;
             }
             if (unified_queue_[lp_id]->isDataValid(activeStart)  && unified_queue_[lp_id]->getValue(activeStart)->event_type_ == EventType::NEGATIVE)
             {
+                
                 std::cerr<<"lp_id "<<lp_id<<"\n";
+                std::cerr<<"index "<<activeStart<<"\n";
                 std::cerr<<"found a -ve with valid marker\n";
                 unified_queue_[lp_id]->debug();
-                
             }
-            unified_queue_[lp_id]->getValue(activeStart).reset();
+            unified_queue_[lp_id]->deleteIndex(activeStart);
+            activeStart = unified_queue_[lp_id]->nextIndex(activeStart);
         }
         if(activeStart != unified_queue_[lp_id]->getActiveStart()){
             unified_queue_[lp_id]->setFreeSign(0);
