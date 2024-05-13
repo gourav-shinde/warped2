@@ -127,14 +127,9 @@ namespace warped
         {
             insertPos = unified_queue_[lp_id]->enqueue(event);
         }
-        
-
-        
         unused(insertPos);
-        
 
-
-        auto ret = InsertStatus::SchedEventSwapSuccess;
+        reportEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()), thread_id);
 
 
         if (scheduled_event_pointer_[lp_id] == nullptr)
@@ -212,17 +207,7 @@ namespace warped
 
     void TimeWarpEventSet::reportLastUnprocessedEvent(uint32_t lp_id, uint32_t thread_id)
     {   
-        // if(lp_id == 9430 && unified_queue_[lp_id]->getPreviousUnprocessedEvent() != nullptr){
-        //     std::cerr<<unified_queue_[lp_id]->getPreviousUnprocessedEvent()->timestamp()<<" "<<lp_id<<"\n";
-        // }
-        // else if(lp_id == 9430){
-        //     std::cerr<<"null event at 9430\n";
-        //     unified_queue_[lp_id]->debug(true,3);
-        // }
-        
-        reportEvent(unified_queue_[lp_id]->getPreviousUnprocessedEvent(), thread_id);
-        
-        
+        reportEvent(unified_queue_[lp_id]->getPreviousUnprocessedEvent(), thread_id); 
     }
     
     /*

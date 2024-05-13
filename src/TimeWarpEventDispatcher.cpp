@@ -507,9 +507,16 @@ namespace warped
                                                                  current_lp);
         assert(restored_state_event);
         assert(*restored_state_event < *straggler_event);
+        event_set_->releaseUnifiedQueueLock(local_lp_id);
+        // Send anti-messages
+        auto events_to_cancel = output_manager_->rollback(straggler_event, local_lp_id);
+        if (events_to_cancel != nullptr)
+        {
+            cancelEvents(std::move(events_to_cancel));
+        }
         
         coastForward(straggler_event, restored_state_event);
-        event_set_->releaseUnifiedQueueLock(local_lp_id);
+        
         
         
 
@@ -519,12 +526,7 @@ namespace warped
 
 
 
-        // Send anti-messages
-        auto events_to_cancel = output_manager_->rollback(straggler_event, local_lp_id);
-        if (events_to_cancel != nullptr)
-        {
-            cancelEvents(std::move(events_to_cancel));
-        }
+        
         
     }
 
