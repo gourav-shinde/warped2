@@ -117,6 +117,7 @@ namespace warped
     {
 
         auto ret = InsertStatus::Success;
+
         
         uint64_t insertPos{0};
         if (event->event_type_ == EventType::NEGATIVE)
@@ -127,7 +128,15 @@ namespace warped
         {
             insertPos = unified_queue_[lp_id]->enqueue(event);
         }
-        unused(insertPos);
+        if(insertPos == INT32_MAX){
+            ret = InsertStatus::Cancelled;
+        }
+
+        // if(lp_id == 24){
+        //     std::cout<<"\ninserting event\n";
+        //     unified_queue_[lp_id]->debug();
+        // }
+    
 
         reportEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()), thread_id);
 
@@ -135,7 +144,13 @@ namespace warped
         if (scheduled_event_pointer_[lp_id] == nullptr)
         {
             startScheduling(lp_id, thread_id);
-            ret = InsertStatus::StarvedObject;
+
+            if(ret == InsertStatus::Cancelled){
+                ret = InsertStatus::StarvAndCancelled;
+            }
+            else{
+                ret = InsertStatus::StarvedObject;
+            }
         }
 
         return ret;
@@ -221,23 +236,15 @@ namespace warped
         // EQUAL will ensure that a negative message will properly be cancelled out.
       
         unified_queue_[lp_id]->fixPosition();
-        
+        // if(lp_id ==24){
+        //     std::cout<<"fixpos called\n";
+        //     unified_queue_[lp_id]->debug();
+        // }
         
         
 
         if (straggler_event->event_type_ == EventType::NEGATIVE)
         {
-            // if(straggler_event->timestamp() == 323){
-                
-            //     printEvent(straggler_event);
-            //     std::cout<<"temp "<<unified_queue_[lp_id]->getUnprocessedStart();
-            //     printEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()));
-            //     std::cout<<"temp+1 "<<unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart());
-            //     printEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart())));
-            //     std::cout<<"temp-1 "<<unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart());
-            //     printEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart())));
-            // }
-
             compareNegativeEvent compare;
             if (unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart())) != nullptr &&
 
@@ -262,14 +269,7 @@ namespace warped
                     std::cout << "ERROR: negative event not in correct order\n";
                     std::cout << straggler_event->timestamp() << " is the event lp_id" << lp_id << "\n";
                     unified_queue_[lp_id]->debug(true, 10);
-                    // printEvent(straggler_event);
-                    // std::cout<<"temp "<<unified_queue_[lp_id]->getUnprocessedStart();
-                    // printEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart()));
-                    // std::cout<<"temp+1 "<<unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart());
-                    // printEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart())));
-                    // std::cout<<"temp-1 "<<unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart());
-                    // printEvent(unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart())));
-                    //sleep for 1 sec
+                    
                     std::this_thread::sleep_for(std::chrono::seconds(1));
                     abort();
                 }
@@ -291,6 +291,11 @@ namespace warped
         }
         
         unified_queue_[lp_id]->sortQueue();
+        // if(lp_id ==24){
+        //     std::cout<<"\n";
+        //     unified_queue_[lp_id]->debug();
+        //     std::cout<<"\nend rollback\n";
+        // }
         
     }
 
@@ -318,6 +323,9 @@ namespace warped
         // All coast forwared events remain in the processed queue.
 
         // Create empty vector
+        // if(lp_id == 24){
+        //     std::cout<<"coastforward called\n";
+        // }
         auto events = make_unique<std::vector<std::shared_ptr<Event>>>();
         unused(restored_state_event);
         
@@ -332,7 +340,10 @@ namespace warped
             // unified_queue_[lp_id]->debug(true, 10);
             // printEvent(restored_state_event);
             // printEvent(straggler_event);
-            
+            if(lp_id ==24){
+                std::cout<<"coastforward Empty\n";
+            }
+
             return events;
         }
         
@@ -344,11 +355,11 @@ namespace warped
 
         
 
+        compareEvents compare;
         
-      
-        while ( restored_state_event < unified_queue_[lp_id]->getValue(unProcessedStart))
+        while (unified_queue_[lp_id]->getValue(unProcessedStart)!=nullptr && compare(restored_state_event ,unified_queue_[lp_id]->getValue(unProcessedStart)))
         {
-            compareEvents compare;
+            
             if(unified_queue_[lp_id]->isDataValid(unProcessedStart) &&  compare(straggler_event, unified_queue_[lp_id]->getValue(unProcessedStart))){
                 printEvent(straggler_event);
                 printEvent(unified_queue_[lp_id]->getValue(unProcessedStart));
@@ -367,14 +378,23 @@ namespace warped
                     std::cerr<<lp_id<<"\n";
                     abort();
                 }
+
+                // if(lp_id == 24){
+                //     std::cout<<"hmm";
+                //     std::cout<<unified_queue_[lp_id]->getValue(unProcessedStart)->timestamp()<<" ";
+                // }
+
                 events->push_back(unified_queue_[lp_id]->getValue(unProcessedStart));
+
                 if (unified_queue_[lp_id]->getValue(unProcessedStart)->event_type_ == EventType::NEGATIVE)
                 {
                     std::cout << "ERROR: negative event in coast forward\n";
                     std::cout << "lp_id: " << lp_id << "\n";
                     std::cout << "timestamp " << unified_queue_[lp_id]->getValue(unProcessedStart)->timestamp() << "\n";
                     unified_queue_[lp_id]->debug(true, 10);
+                    abort();
                 }
+
             }
             if(unProcessedStart == activeStart){
                 //worth taking a look at
@@ -385,6 +405,14 @@ namespace warped
 
             
         }
+        // if(lp_id == 24){
+        //     std::cout<<"\n";
+        // }
+
+        // if(lp_id ==24){
+        //         std::cout<<"returning coast forwards\n";
+        // }
+        
         
         
         return events;
@@ -409,8 +437,9 @@ namespace warped
 
         
             scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
-            // if(lp_id ==  4436){
-            //     unified_queue_[lp_id]->debug(true, 0);
+            // if(lp_id == 24){
+            //     std::cout<<"\nscheduled Event\n";
+            //     unified_queue_[lp_id]->debug();
             // }
             unsigned int scheduler_id = input_queue_scheduler_map_[lp_id];
             // if(scheduled_event_pointer_[lp_id] == nullptr){
@@ -463,8 +492,9 @@ namespace warped
         
         scheduled_event_pointer_[lp_id] = unified_queue_[lp_id]->dequeue();
 
-        // if(lp_id ==  4436){
-        //         unified_queue_[lp_id]->debug(true, 0);
+        // if(lp_id == 24){
+        //     std::cout<<"\nreplinished event\n";
+        //     unified_queue_[lp_id]->debug();
         // }
         
         if(scheduled_event_pointer_[lp_id] !=nullptr){

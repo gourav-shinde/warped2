@@ -513,9 +513,7 @@ public:
             // unused(FreeStart);
             // unused(UnprocessedStart);
             insertPos = findInsertPosition(element, UnprocessedStart(markerCopy), FreeStart(markerCopy));
-            if(insertPos ==INT32_MAX-1){
-                return insertPos;
-            }
+            
             if(negative){
                 if(queue_[insertPos].getData()!=nullptr && negativeCounterPart_(queue_[insertPos].getData(), element)){
                     queue_[insertPos].invalidate();
@@ -536,15 +534,15 @@ public:
             }
         }
 
-        // if(!queue_[prevIndex(FreeStart(marker))].isValid()){
-        //     setFreeStart(prevIndex(FreeStart(marker)));
-        //     setFreeSign(false);
-        //     if(getFreeStart() == getUnprocessedStart()){
-        //         setUnprocessedSign(true);
-        //     }
+        if(!queue_[prevIndex(FreeStart(marker))].isValid()){
+            setFreeStart(prevIndex(FreeStart(marker)));
+            setFreeSign(false);
+            if(getFreeStart() == getUnprocessedStart()){
+                setUnprocessedSign(true);
+            }
             
-        //     deleteIndex(getFreeStart());
-        // }
+            deleteIndex(getFreeStart());
+        }
         
         
         

@@ -1,8 +1,5 @@
 #define CIRCULAR_VECTOR_ITERATOR_HPP
 
-#include <vector>
-#include <iterator>
-
 #include <iostream>
 #include <vector>
 #include <iterator>

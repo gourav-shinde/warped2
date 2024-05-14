@@ -184,10 +184,9 @@ namespace warped
             // NOTE: local_gvt_flag must be obtained before getting the next event to avoid the
             //  "simultaneous reporting problem"
             local_gvt_flag = gvt_manager_->getLocalGVTFlag();
-            
+
             std::shared_ptr<Event> event = event_set_->getEvent(thread_id);
 
-              
             if (event != nullptr)
             {
 #ifdef TIMEWARP_EVENT_LOG
@@ -197,33 +196,34 @@ namespace warped
                 event_stats += "," + event->receiverName();
                 event_stats += "," + std::to_string(event->timestamp());
 #endif
-                //maybe report min(last_processed_event and event->timestamp())
-                //make if so if we are in gvt calculation all lp for same threadid are reported
-                //means we are in gvt calculation
-                //report last processed event for all lp for this thread
-                if(local_gvt_flag > 0){
-                    //report every lp for this thread
-                    if(thread_id == 0){
+                // maybe report min(last_processed_event and event->timestamp())
+                // make if so if we are in gvt calculation all lp for same threadid are reported
+                // means we are in gvt calculation
+                // report last processed event for all lp for this thread
+                if (local_gvt_flag > 0)
+                {
+                    // report every lp for this thread
+                    if (thread_id == 0)
+                    {
                         for (uint32_t lp_id_num = 0; lp_id_num < event_set_->lp_size_per_thread[thread_id]; lp_id_num++)
-                        {   
+                        {
                             // event_set_->acquireUnifiedQueueLock(lp_id_num);
                             event_set_->reportLastUnprocessedEvent(lp_id_num, thread_id);
                             // event_set_->releaseUnifiedQueueLock(lp_id_num);
                         }
                     }
-                    else{
-                        for (uint32_t lp_id_num = event_set_->lp_size_per_thread[thread_id-1]; lp_id_num < event_set_->lp_size_per_thread[thread_id]; lp_id_num++)
-                        {   
+                    else
+                    {
+                        for (uint32_t lp_id_num = event_set_->lp_size_per_thread[thread_id - 1]; lp_id_num < event_set_->lp_size_per_thread[thread_id]; lp_id_num++)
+                        {
                             // event_set_->acquireUnifiedQueueLock(lp_id_num);
                             event_set_->reportLastUnprocessedEvent(lp_id_num, thread_id);
                             // event_set_->releaseUnifiedQueueLock(lp_id_num);
                         }
                     }
-                    
                 }
                 gvt_manager_->reportThreadMin(event_set_->lowestTimestamp(thread_id), thread_id, local_gvt_flag, event_set_->schedule_cycle_);
-              
-              
+
                 // Make sure that if this thread is currently seen as passive, we update it's state
                 //  so we don't terminate early.
                 if (termination_manager_->threadPassive(thread_id))
@@ -236,12 +236,8 @@ namespace warped
                 LogicalProcess *current_lp = lps_by_name_[event->receiverName()];
 
                 // Get the last processed event so we can check for a rollback
-                
-                
+
                 auto last_processed_event = event_set_->lastProcessedEvent(current_lp_id);
-                
-                
-                
 
                 // The rules with event processing
                 //      1. Negative events are given priority over positive events if they both exist
@@ -260,8 +256,6 @@ namespace warped
                 //      1. We get an event that is strictly less than the last processed event.
                 //      2. We get an event that is equal to the last processed event and is negative.
 
-               
-               
                 // if (current_lp_id == 1063)
                 // {
                 //     std::cout << "Event: " << event->timestamp() << std::endl;
@@ -277,17 +271,30 @@ namespace warped
                 //         std::cout << "Positive Event\n";
                 //     };
                 // }
-                
-                
-                if ((last_processed_event!=nullptr &&
-                     ((*event < *last_processed_event) ||
-                        (*event == *last_processed_event))) ||
-                    (event->event_type_ == EventType::NEGATIVE))
+
+                // if ((last_processed_event!=nullptr &&
+                //      ((*event < *last_processed_event) ||
+                //         (*event == *last_processed_event))) ||
+                //     (event->event_type_ == EventType::NEGATIVE))
+                // {
+                //     rollback(event);
+                // }
+                compareEvents compare;
+                if ((last_processed_event != nullptr && compare(event, last_processed_event)) || event->event_type_ == EventType::NEGATIVE)
                 {
+                    // if(current_lp_id == 24){
+                    //     std::cout<<"rollback "<<current_lp_id<<" ";
+                    //     if (event->event_type_ == EventType::NEGATIVE)
+                    //     {
+                    //         std::cout <<"-"<<event->timestamp()<<"\n";
+                    //     }
+                    //     else
+                    //     {
+                    //         std::cout <<"+"<<event->timestamp()<<"\n";
+                    //     };
+                    // }
                     rollback(event);
                 }
-
-                
 
                 // Check to see if event is NEGATIVE and cancel
                 if (event->event_type_ == EventType::NEGATIVE)
@@ -300,7 +307,7 @@ namespace warped
                 // process event and get new events
                 // std::cerr<<"Processing Event: "<<event->timestamp()<<std::endl;
                 auto new_events = current_lp->receiveEvent(*event);
-                
+
                 tw_stats_->upCount(EVENTS_PROCESSED, thread_id);
 
                 // Save state
@@ -308,7 +315,6 @@ namespace warped
 
                 // Send new events
                 sendEvents(event, new_events, current_lp_id, current_lp);
-                
 
                 // Check for recent gvt update
                 gvt = gvt_manager_->getGVT();
@@ -336,7 +342,6 @@ namespace warped
                 // Also transfer old event to processed queue
 
                 event_set_->replenishScheduler(current_lp_id, thread_id);
-                
             }
             else
             {
@@ -411,11 +416,8 @@ namespace warped
         // std::cout<<"sending local event\n";
         // NOTE: Event is assumed to be less than the maximum simulation time.
 
-
         auto status = event_set_->insertEvent(receiver_lp_id, event, thread_id);
         // event_set_->reportEvent(event, thread_id);
-        
-
 
         // Make sure to track sends if we are in the middle of a GVT calculation.
         gvt_manager_->reportThreadSendMin(event->timestamp(), thread_id);
@@ -424,13 +426,14 @@ namespace warped
         {
             tw_stats_->upCount(EVENTS_FOR_STARVED_OBJECTS, thread_id);
         }
-        else if (status == InsertStatus::SchedEventSwapSuccess)
+        else if (status == InsertStatus::Cancelled)
         {
-            tw_stats_->upCount(SCHEDULED_EVENT_SWAPS_SUCCESS, thread_id);
+            tw_stats_->upCount(CANCELLED_EVENTS, thread_id);
         }
-        else if (status == InsertStatus::SchedEventSwapFailure)
+        else if (status == InsertStatus::StarvAndCancelled)
         {
-            tw_stats_->upCount(SCHEDULED_EVENT_SWAPS_FAILURE, thread_id);
+            tw_stats_->upCount(EVENTS_FOR_STARVED_OBJECTS, thread_id);
+            tw_stats_->upCount(CANCELLED_EVENTS, thread_id);
         }
     }
 
@@ -492,42 +495,39 @@ namespace warped
         if (straggler_event->timestamp() < gvt_manager_->getGVT())
         {
             std::cerr << "Rolling back past GVT: " << straggler_event->timestamp() << " < " << gvt_manager_->getGVT() << std::endl;
-            //put debug statement here for debug
-            std::cerr<<"lp_id: "<<local_lp_id<<std::endl;
+            // put debug statement here for debug
+            std::cerr << "lp_id: " << local_lp_id << std::endl;
             event_set_->debugLPQueue(local_lp_id);
 
             assert(false);
         }
 
-
         event_set_->acquireUnifiedQueueLock(local_lp_id);
         event_set_->rollback(local_lp_id, straggler_event);
+        event_set_->releaseUnifiedQueueLock(local_lp_id);
 
         auto restored_state_event = state_manager_->restoreState(straggler_event, local_lp_id,
                                                                  current_lp);
         assert(restored_state_event);
         assert(*restored_state_event < *straggler_event);
-        event_set_->releaseUnifiedQueueLock(local_lp_id);
+        
+        // if(local_lp_id == 24){
+        // std::cout<<"RP: "<<restored_state_event->timestamp()<<"\n";
+        // std::cout<<"SE: "<<straggler_event->timestamp()<<"\n";
+        // }
+
         // Send anti-messages
         auto events_to_cancel = output_manager_->rollback(straggler_event, local_lp_id);
         if (events_to_cancel != nullptr)
         {
             cancelEvents(std::move(events_to_cancel));
         }
-        
+
+        event_set_->acquireUnifiedQueueLock(local_lp_id);
         coastForward(straggler_event, restored_state_event);
-        
-        
-        
+        event_set_->releaseUnifiedQueueLock(local_lp_id);
 
-         
         // Restore state by getting most recent saved state before the straggler and coast forwarding.
-        
-
-
-
-        
-        
     }
 
     void TimeWarpEventDispatcher::coastForward(std::shared_ptr<Event> straggler_event,

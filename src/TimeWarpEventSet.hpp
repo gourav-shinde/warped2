@@ -27,10 +27,10 @@ namespace warped {
 
 enum class InsertStatus {
     Success,
+    Cancelled,
     LpOnly,
     StarvedObject,
-    SchedEventSwapSuccess,
-    SchedEventSwapFailure
+    StarvAndCancelled
 };
 
 struct ThreadMin {

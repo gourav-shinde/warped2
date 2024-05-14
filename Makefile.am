@@ -18,7 +18,8 @@ WARPED_INSTALL_HPP_FILES = \
     src/warped.hpp \
     src/utility/memory.hpp \
     src/utility/warnings.hpp \
-    src/UnifiedQueue.hpp
+    src/UnifiedQueue.hpp \
+    src/CircularVectorIterator.hpp
 
 # All other headers are listed in this variable
 WARPED_NOINST_HPP_FILES = \
@@ -41,7 +42,6 @@ WARPED_NOINST_HPP_FILES = \
     src/TimeWarpEventDispatcher.hpp \
 	src/TicketLock.hpp \
     src/TimeWarpAggressiveOutputManager.hpp \
-    src/TimeWarpAsynchronousGVTManager.hpp \
     src/TimeWarpCommunicationManager.hpp \
     src/TimeWarpEventSet.hpp \
     src/TimeWarpFileStream.hpp \
@@ -75,7 +75,6 @@ WARPED_CPP_FILES = \
     src/SplayTree.cpp \
     src/STLLTSFQueue.cpp \
     src/TimeWarpAggressiveOutputManager.cpp \
-    src/TimeWarpAsynchronousGVTManager.cpp \
     src/TimeWarpCommunicationManager.cpp \
     src/TimeWarpEventDispatcher.cpp \
     src/TimeWarpFileStream.cpp \
