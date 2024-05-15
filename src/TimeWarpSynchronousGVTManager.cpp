@@ -11,8 +11,8 @@ enum class Color;
 
 void TimeWarpSynchronousGVTManager::initialize() {
     pthread_barrier_init(&gvt_barrier1_, NULL, num_worker_threads_+1);
-    pthread_barrier_init(&gvt_barrier2_, NULL, num_worker_threads_+1);
-    pthread_barrier_init(&gvt_barrier3_, NULL, num_worker_threads_+1);
+    // pthread_barrier_init(&gvt_barrier2_, NULL, num_worker_threads_+1);
+    // pthread_barrier_init(&gvt_barrier3_, NULL, num_worker_threads_+1);
     // pthread_barrier_init(&gvtSendEventsBarrier_, NULL, num_worker_threads_+1);
 
     local_min_ = make_unique<unsigned int []>(num_worker_threads_+1);
@@ -52,7 +52,7 @@ void TimeWarpSynchronousGVTManager::progressGVT() {
             if(total_msg_count == 0)
                 break;
         }
-        pthread_barrier_wait(&gvt_barrier2_);
+        // pthread_barrier_wait(&gvt_barrier2_);
         // pthread_barrier_wait(&gvt_barrier2_);
 
         unsigned int local_min = recv_min_;
@@ -74,7 +74,7 @@ void TimeWarpSynchronousGVTManager::progressGVT() {
 
         color_.store(Color::WHITE);
         local_gvt_flag_.store(0);
-        pthread_barrier_wait(&gvt_barrier3_);
+        pthread_barrier_wait(&gvt_barrier1_);
 
         gvt_stop = std::chrono::steady_clock::now();
         gvt_state_ = GVTState::IDLE;
@@ -113,11 +113,13 @@ bool TimeWarpSynchronousGVTManager::gvtUpdated() {
 void TimeWarpSynchronousGVTManager::reportThreadMin(unsigned int timestamp, unsigned int thread_id,
                                                     unsigned int local_gvt_flag, std::vector<std::shared_ptr<ThreadMin>> &schedule_cycle) {
     if (local_gvt_flag > 0) {
-        pthread_barrier_wait(&gvt_barrier1_);
+        
         local_min_[thread_id] = timestamp;
         schedule_cycle[thread_id]->min = INT32_MAX;
-        pthread_barrier_wait(&gvt_barrier2_);
-        pthread_barrier_wait(&gvt_barrier3_);
+        pthread_barrier_wait(&gvt_barrier1_);
+        pthread_barrier_wait(&gvt_barrier1_);
+        // pthread_barrier_wait(&gvt_barrier2_);
+        // pthread_barrier_wait(&gvt_barrier3_);
     }
 }
 

@@ -173,16 +173,19 @@ namespace warped
         }
 
 #elif defined(CIRCULAR_QUEUE)
-        auto event = schedule_queue_[scheduler_id]->pop_front();
+    auto event = schedule_queue_[scheduler_id]->pop_front();
 
 #else /* STL MultiSet */
-        auto event_iterator = schedule_queue_[thread_id]->begin();
-        auto event = (event_iterator != schedule_queue_[thread_id]->end()) ? *event_iterator : nullptr;
-        if (event != nullptr)
-        {
-            reportEvent(event, thread_id);
-            schedule_queue_[thread_id]->erase(event_iterator);
-        }
+    auto event_iterator = schedule_queue_[thread_id]->begin();
+    auto event = (event_iterator != schedule_queue_[thread_id]->end()) ? *event_iterator : nullptr;
+    
+    if (event != nullptr)
+    {
+        reportEvent(event, thread_id);
+        assert(event_iterator!=schedule_queue_[thread_id]->end());
+        assert(schedule_queue_[thread_id] != nullptr);
+        schedule_queue_[thread_id]->erase(event_iterator);
+    }
 #endif
 
         // NOTE: scheduled_event_pointer is not changed here so that other threads will not schedule new
@@ -340,9 +343,9 @@ namespace warped
             // unified_queue_[lp_id]->debug(true, 10);
             // printEvent(restored_state_event);
             // printEvent(straggler_event);
-            if(lp_id ==24){
-                std::cout<<"coastforward Empty\n";
-            }
+            // if(lp_id ==24){
+            //     std::cout<<"coastforward Empty\n";
+            // }
 
             return events;
         }
@@ -452,6 +455,8 @@ namespace warped
                 // if(lp_id == 6715){
                 //     std::cout<<"dequeue "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
                 // }
+                assert(scheduled_event_pointer_[lp_id] != nullptr);
+                assert(schedule_queue_[scheduler_id]!=nullptr);
                 schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
 
                 reportEvent(scheduled_event_pointer_[lp_id], thread_id);
@@ -501,6 +506,8 @@ namespace warped
             // if(lp_id == 6715){
             //        std::cout<<"dequeue "<<lp_id<<" ustart"<<unified_queue_[lp_id]->getUnprocessedStart()<<" fstart"<<unified_queue_[lp_id]->getFreeStart()<<std::endl;
             // }
+            assert(scheduled_event_pointer_[lp_id] != nullptr);
+            assert(schedule_queue_[scheduler_id]!=nullptr);
             schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
             reportEvent(scheduled_event_pointer_[lp_id], thread_id);
         }

@@ -475,7 +475,7 @@ public:
     // This is thread safe
     uint64_t enqueue(T element, bool negative = false){
         
-        lock_.lock();
+        std::lock_guard<std::mutex> lock(lock_);
        
         enqueue_counter_++;
         uint64_t insertPos = getUnprocessedStart();
@@ -490,6 +490,16 @@ public:
             std::cout<<"Rollback Counter: "<<rollback_counter_<<std::endl;
             std::cout<<"Rollback Function Counter: "<<rollback_function_counter_<<std::endl;
             abort();
+
+            //reset all invalid events in unprocessed zone and refactor
+            // uint63_t unprocessedStart = getUnprocessedStart();
+            // uint63_t freeStart = getFreeStart();
+            // while(unprocessedStart != freeStart){
+            //     if(!queue_[unprocessedStart].isValid()){
+            //         queue_[unprocessedStart].validate();
+            //     }
+            //     unprocessedStart = nextIndex(unprocessedStart);
+            // }
         }
 
         uint64_t marker = marker_;
@@ -544,13 +554,7 @@ public:
             deleteIndex(getFreeStart());
         }
         
-        
-        
 
-        lock_.unlock();
-    
-           
-        
         // std::this_thread::sleep_for(std::chrono::milliseconds(10));
         return insertPos;
     }
@@ -559,7 +563,7 @@ public:
     /// @brief
     /// @return returns the element at the front of the UnprocessStart
     T dequeue(){ 
-        lock_.lock();
+        std::lock_guard<std::mutex> lock(lock_);
         // std::cout<<"dequeue called "<<std::endl;
         bool success = false;
         while(!success){
@@ -567,13 +571,11 @@ public:
             if (isEmpty()){
                 //throw message
                 // std::cout << "Queue is empty" << std::endl;
-                lock_.unlock();
                 return nullptr;
             }
             if(isUnprocessedZoneEmpty()){
                 //throw message
                 // std::cout << "unprocessed Queue is empty" << std::endl;
-                lock_.unlock();
                 return nullptr;
             }
 
@@ -596,14 +598,13 @@ public:
                     
             
             if(success){
-                lock_.unlock();
+                
                 return element;
             }
             //call fix position here without updating the markers
             fixPositionInvalid();
             
         }
-        lock_.unlock();
         return nullptr;
         
     }
@@ -808,6 +809,7 @@ public:
     /// @brief returns previous valid unproceesed event
     /// @return 
     T getPreviousUnprocessedEvent(){
+        std::lock_guard<std::mutex> lock(lock_);
         T element = nullptr;
         
         //this is called after a dequeue so we need it to go before it

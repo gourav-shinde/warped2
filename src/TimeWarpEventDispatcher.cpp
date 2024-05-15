@@ -207,18 +207,20 @@ namespace warped
                     {
                         for (uint32_t lp_id_num = 0; lp_id_num < event_set_->lp_size_per_thread[thread_id]; lp_id_num++)
                         {
-                            // event_set_->acquireUnifiedQueueLock(lp_id_num);
+                           
                             event_set_->reportLastUnprocessedEvent(lp_id_num, thread_id);
-                            // event_set_->releaseUnifiedQueueLock(lp_id_num);
+                            // event_set_->reportEvent(event_set_->getUnprocessedStartValue(lp_id_num),thread_id);
+                            
                         }
                     }
                     else
                     {
                         for (uint32_t lp_id_num = event_set_->lp_size_per_thread[thread_id - 1]; lp_id_num < event_set_->lp_size_per_thread[thread_id]; lp_id_num++)
                         {
-                            // event_set_->acquireUnifiedQueueLock(lp_id_num);
                             event_set_->reportLastUnprocessedEvent(lp_id_num, thread_id);
-                            // event_set_->releaseUnifiedQueueLock(lp_id_num);
+                            // event_set_->reportEvent(event_set_->getUnprocessedStartValue(lp_id_num),thread_id);
+
+                            
                         }
                     }
                 }
@@ -272,6 +274,10 @@ namespace warped
                 //     };
                 // }
 
+                // if(current_lp_id == 6749 && event->timestamp() ==1397){
+                //     event_set_->debugLPQueue(current_lp_id);
+                // }
+
                 // if ((last_processed_event!=nullptr &&
                 //      ((*event < *last_processed_event) ||
                 //         (*event == *last_processed_event))) ||
@@ -279,6 +285,8 @@ namespace warped
                 // {
                 //     rollback(event);
                 // }
+
+
                 compareEvents compare;
                 if ((last_processed_event != nullptr && compare(event, last_processed_event)) || event->event_type_ == EventType::NEGATIVE)
                 {
@@ -553,9 +561,11 @@ namespace warped
 
         // NOTE: events are in order from LARGEST to SMALLEST, so reprocess backwards
         // std::cout<<"Coast Forwarding Events: "<<events->size()<<std::endl;
+        compareEvents compare;
         for (auto event_itr = events->rbegin(); event_itr != events->rend(); ++event_itr)
         {
             assert(**event_itr < *straggler_event);
+            assert(compare(*event_itr, straggler_event));
             // This just updates state, ignore new events
             lp->receiveEvent(**event_itr);
             tw_stats_->upCount(COAST_FORWARDED_EVENTS, thread_id);
