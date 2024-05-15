@@ -278,31 +278,31 @@ namespace warped
                 //     event_set_->debugLPQueue(current_lp_id);
                 // }
 
-                // if ((last_processed_event!=nullptr &&
-                //      ((*event < *last_processed_event) ||
-                //         (*event == *last_processed_event))) ||
-                //     (event->event_type_ == EventType::NEGATIVE))
-                // {
-                //     rollback(event);
-                // }
-
-
-                compareEvents compare;
-                if ((last_processed_event != nullptr && compare(event, last_processed_event)) || event->event_type_ == EventType::NEGATIVE)
+                if ((last_processed_event!=nullptr &&
+                     ((*event < *last_processed_event) ||
+                        (*event == *last_processed_event))) ||
+                    (event->event_type_ == EventType::NEGATIVE))
                 {
-                    // if(current_lp_id == 24){
-                    //     std::cout<<"rollback "<<current_lp_id<<" ";
-                    //     if (event->event_type_ == EventType::NEGATIVE)
-                    //     {
-                    //         std::cout <<"-"<<event->timestamp()<<"\n";
-                    //     }
-                    //     else
-                    //     {
-                    //         std::cout <<"+"<<event->timestamp()<<"\n";
-                    //     };
-                    // }
                     rollback(event);
                 }
+
+
+                // compareEvents compare;
+                // if ((last_processed_event != nullptr && compare(event, last_processed_event)) || event->event_type_ == EventType::NEGATIVE)
+                // {
+                //     // if(current_lp_id == 24){
+                //     //     std::cout<<"rollback "<<current_lp_id<<" ";
+                //     //     if (event->event_type_ == EventType::NEGATIVE)
+                //     //     {
+                //     //         std::cout <<"-"<<event->timestamp()<<"\n";
+                //     //     }
+                //     //     else
+                //     //     {
+                //     //         std::cout <<"+"<<event->timestamp()<<"\n";
+                //     //     };
+                //     // }
+                //     rollback(event);
+                // }
 
                 // Check to see if event is NEGATIVE and cancel
                 if (event->event_type_ == EventType::NEGATIVE)

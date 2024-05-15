@@ -364,6 +364,7 @@ namespace warped
         {
             
             if(unified_queue_[lp_id]->isDataValid(unProcessedStart) &&  compare(straggler_event, unified_queue_[lp_id]->getValue(unProcessedStart))){
+                std::cerr<<"ERROR: straggler event is bigger than event in coast forward\n";
                 printEvent(straggler_event);
                 printEvent(unified_queue_[lp_id]->getValue(unProcessedStart));
                 printEvent(restored_state_event);
@@ -566,87 +567,7 @@ namespace warped
     // .. this gives the time stamp until which we need to increament the activeStart
     unsigned int TimeWarpEventSet::fossilCollect(unsigned int fossil_collect_time, unsigned int lp_id)
     {
-        // std::cout<<"fossilCollect called\n";
-        unsigned int count = 0;
-
-        unified_queue_[lp_id]->getlock();
-        // this is for termination of the warped kernel
-        if (fossil_collect_time == (unsigned int)-1)
-        {
-            
-            uint32_t activeStart = unified_queue_[lp_id]->getActiveStart();
-            uint32_t unProcessedStart = unified_queue_[lp_id]->getUnprocessedStart();
-            uint32_t freeStart = unified_queue_[lp_id]->getFreeStart();
-            if (unProcessedStart != freeStart)
-            {
-                std::cerr << "ERROR: unProcessedStart != freeStart at termination\n";
-            }
-            while (activeStart != unProcessedStart)
-            {
-                
-                
-                if (unified_queue_[lp_id]->isDataValid(activeStart))
-                {
-                    count++;
-                }
-                if(unified_queue_[lp_id]->getValue(activeStart) == nullptr){
-                    std::cout<<"ERROR: null event in fossil collect\n";
-                    std::cout<<"lp_id: "<<lp_id<<"\n";
-                    std::cout<<"activeStart: "<<activeStart<<"\n";
-                    unified_queue_[lp_id]->debug(true, 10);
-                    // abort();
-                }
-                
-                if (unified_queue_[lp_id]->isDataValid(activeStart)  && unified_queue_[lp_id]->getValue(activeStart)->event_type_ == EventType::NEGATIVE)
-                {
-                   
-                    std::cerr<<"lp_id "<<lp_id<<"\n";
-                    std::cerr<<"index "<<activeStart<<"\n";
-                    std::cerr<<"found a -ve with valid marker\n";
-                    unified_queue_[lp_id]->debug();
-                }
-                unified_queue_[lp_id]->deleteIndex(activeStart);
-                activeStart = unified_queue_[lp_id]->nextIndex(activeStart);
-                
-            }
-            unified_queue_[lp_id]->releaseLock();
-            return count;
-        }
-
-        // normal, do fossile collection until events smaller than equal to fossil-collection-time
-        //  discuss this with sounak,
-        // going with this route as this is also thread safe atomic operation
-        uint64_t activeStart = unified_queue_[lp_id]->getActiveStart();
-        
-        while (unified_queue_[lp_id]->getValue(activeStart)->timestamp() <= fossil_collect_time &&
-               unified_queue_[lp_id]->nextIndex(activeStart) != unified_queue_[lp_id]->nextIndex((unified_queue_[lp_id]->getUnprocessedStart())))
-        {
-            // if(lp_id ==  2118){
-            //     unified_queue_[lp_id]->debug(true, 0);
-            // }
-            
-            if (unified_queue_[lp_id]->isDataValid(activeStart))
-            {
-                count++;
-            }
-            if (unified_queue_[lp_id]->isDataValid(activeStart)  && unified_queue_[lp_id]->getValue(activeStart)->event_type_ == EventType::NEGATIVE)
-            {
-                
-                std::cerr<<"lp_id "<<lp_id<<"\n";
-                std::cerr<<"index "<<activeStart<<"\n";
-                std::cerr<<"found a -ve with valid marker\n";
-                unified_queue_[lp_id]->debug();
-            }
-            unified_queue_[lp_id]->deleteIndex(activeStart);
-            activeStart = unified_queue_[lp_id]->nextIndex(activeStart);
-        }
-        if(activeStart != unified_queue_[lp_id]->getActiveStart()){
-            unified_queue_[lp_id]->setFreeSign(0);
-        }
-        unified_queue_[lp_id]->setActiveStart(activeStart);
-        
-        unified_queue_[lp_id]->releaseLock();
-        return count;
+        return unified_queue_[lp_id]->fossilCollect(fossil_collect_time, lp_id);
     }
 
 } // namespace warped

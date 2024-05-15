@@ -906,4 +906,81 @@ public:
     }
 
 
+
+    uint32_t fossilCollect(unsigned int fossilCollectTime, uint32_t lp_id = 0 ){
+        std::lock_guard<std::mutex> lock(lock_);
+        uint32_t count {0};
+        if(fossilCollectTime != (unsigned int)-1){
+
+            uint64_t eventPointer = getActiveStart();
+            
+            while (getValue(eventPointer)->timestamp() <= fossilCollectTime &&
+                eventPointer != getUnprocessedStart())
+            {
+                
+                if (isDataValid(eventPointer))
+                {
+                    count++;
+                }
+                if (isDataValid(eventPointer)  && getValue(eventPointer)->event_type_ == warped::EventType::NEGATIVE)
+                {
+                    
+                    std::cerr<<"lp_id "<<lp_id<<"\n";
+                    std::cerr<<"index "<<eventPointer<<"\n";
+                    std::cerr<<"found a -ve with valid marker\n";
+                    debug();
+                }
+                deleteIndex(eventPointer);
+                eventPointer = nextIndex(eventPointer);
+            }
+            if(eventPointer != getActiveStart()){
+                setFreeSign(0);
+            }
+            setActiveStart(eventPointer);
+
+        }
+        else{
+
+            uint32_t activeStart = getActiveStart();
+            uint32_t unProcessedStart = getUnprocessedStart();
+            uint32_t freeStart = getFreeStart();
+            if (unProcessedStart != freeStart)
+            {
+                std::cerr << "ERROR: unProcessedStart != freeStart at termination\n";
+            }
+            while (activeStart != unProcessedStart)
+            {
+                
+                
+                if (isDataValid(activeStart))
+                {
+                    count++;
+                }
+                if(getValue(activeStart) == nullptr){
+                    std::cout<<"ERROR: null event in fossil collect\n";
+                    std::cout<<"lp_id: "<<lp_id<<"\n";
+                    std::cout<<"activeStart: "<<activeStart<<"\n";
+                    debug(true, 10);
+                    // abort();
+                }
+                
+                if (isDataValid(activeStart)  && getValue(activeStart)->event_type_ == warped::EventType::NEGATIVE)
+                {
+                   
+                    std::cerr<<"lp_id "<<lp_id<<"\n";
+                    std::cerr<<"index "<<activeStart<<"\n";
+                    std::cerr<<"found a -ve with valid marker\n";
+                    debug();
+                }
+                deleteIndex(activeStart);
+                activeStart = nextIndex(activeStart);
+
+            }
+        }
+
+        return count;
+
+    }
+
+
 };
