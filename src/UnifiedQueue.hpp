@@ -31,6 +31,7 @@ class UnifiedQueue
  * It supports enqueue and dequeue operations, as well as various utility functions for accessing and modifying the queue.
  */
 {
+    
     class Data{
         public:
         Data(T data = T(),bool valid=true):data_(data), valid_(valid){};
@@ -81,6 +82,8 @@ private:
     negativeCounterPart negativeCounterPart_; //used to find negative counterpart
     std::mutex lock_;
     uint32_t capacity_;
+
+    
     // bool sortfunction(Data a, Data b) { return compare_(a.getData(), b.getData()); };
     
 public:
@@ -322,6 +325,7 @@ public:
                 }
                 ++i;
             }
+            std::cout << std::endl;
         }
          
     }
@@ -544,15 +548,15 @@ public:
             }
         }
 
-        if(!queue_[prevIndex(FreeStart(marker))].isValid()){
-            setFreeStart(prevIndex(FreeStart(marker)));
-            setFreeSign(false);
-            if(getFreeStart() == getUnprocessedStart()){
-                setUnprocessedSign(true);
-            }
+        // if(!queue_[prevIndex(FreeStart(marker))].isValid()){
+        //     setFreeStart(prevIndex(FreeStart(marker)));
+        //     setFreeSign(false);
+        //     if(getFreeStart() == getUnprocessedStart()){
+        //         setUnprocessedSign(true);
+        //     }
             
-            deleteIndex(getFreeStart());
-        }
+        //     deleteIndex(getFreeStart());
+        // }
         
 
         // std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -692,8 +696,20 @@ public:
         }
         // Custom comparator function for sorting
         auto comp =  [&](Data& a, Data& b) { 
-            return (compare_(a.getData(), b.getData()));
+            if(a.valid_ && b.valid_){
+            return compare_(a.getData(), b.getData());
+            }
+            else if(a.valid_ && !b.valid_){
+                return true;
+            }
+            else if(!a.valid_ && b.valid_){
+                return false;
+            }
+            else{
+                return false;
+            }
         };
+        
         
 
         
@@ -707,9 +723,31 @@ public:
         }
         uint64_t unprocessedStart_ = getUnprocessedStart();
         uint64_t freeStart_ = getFreeStart();
+        for(uint64_t i = unprocessedStart_; i != freeStart_; i = nextIndex(i)){
+            if(queue_[i].getData() == nullptr){
+                std::cerr<<"something happened to this index "<<i<<"\n";
+                debug();
+                abort();
+            }
+        }
+
+        auto comp =  [&](Data& a, Data& b) { 
+            if(a.valid_ && b.valid_){
+            return compare_(a.getData(), b.getData());
+            }
+            else if(a.valid_ && !b.valid_){
+                return true;
+            }
+            else if(!a.valid_ && b.valid_){
+                return false;
+            }
+            else{
+                return false;
+            }
+        };
 
         if(unprocessedStart_ < freeStart_){ //no rotation
-            std::sort(queue_.begin() + unprocessedStart_, queue_.begin() + freeStart_, [this](Data a, Data b) { return compare_(a.getData(), b.getData()); });
+            std::sort(queue_.begin() + unprocessedStart_, queue_.begin() + freeStart_ , comp);
         }
         else{ //rotation
             sortPortion(unprocessedStart_, freeStart_);
@@ -735,7 +773,10 @@ public:
         //find index to swap with
 
         //get previous valid event from unprocessed start
-        uint16_t swap_index_r = prevIndex(UnprocessedStart(marker));
+        //point to straggler here
+        setUnprocessedStart(prevIndex(UnprocessedStart(marker))); //this is increamented at end of rollback
+        uint16_t swap_index_r = getUnprocessedStart();
+        // std::cerr<<"Unprocessed Start: "<<swap_index_r<<"\n";
         if(debug){
             std::cout<<"event which is supposed to be swapped\n";
             std::cout<<queue_[swap_index_r].getData()->timestamp()<<std::endl;
@@ -979,6 +1020,68 @@ public:
         }
 
         return count;
+
+    }
+
+
+    void rollback(T straggler_event, uint32_t lp_id = 0){
+        std::lock_guard<std::mutex> lock(lock_);
+
+        fixPosition();
+
+
+        if(straggler_event->event_type_ == warped::EventType::NEGATIVE){
+            // debug();
+            auto status = find(straggler_event); //goes and invalidates the +ve event
+            // debug();
+            if(status == FindStatus::UNPROCESSED){
+                // std::cerr<<"Invalidating a negative event at "<<getUnprocessedStart()<<"\n";
+                invalidateIndex(getUnprocessedStart()); 
+
+                // debug(); 
+            }
+            else{
+                std::cout << "ERROR: negative event not in correct order\n";
+                std::cout << straggler_event->timestamp()<<"\n";
+                std::cout<<"lp_id: "<<lp_id<<"\n";
+                debug(true, 10);
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                abort();
+            }
+        }
+        
+        //increament unprocessedStart
+        if(nextIndex(getUnprocessedStart()) == getFreeStart()){
+            setUnprocessedSign(1);
+        }
+        setUnprocessedStart(nextIndex(getUnprocessedStart()));
+
+        sortQueue();
+
+
+        //this section decreaments the freeStart to first invalid event
+
+        uint64_t freeStart = getFreeStart();
+        uint64_t temp {freeStart};
+        while(freeStart!=getUnprocessedStart()){
+            if(!isDataValid(prevIndex(freeStart))){
+                // std::cerr<<"deleteing something\n";
+                deleteIndex(prevIndex(freeStart));
+            }
+            else{
+                // std::cerr<<"breaking\n";
+                break;
+            }
+            freeStart = prevIndex(freeStart); 
+        }
+        
+        if(temp != freeStart){
+            setUnprocessedSign(false);
+        }
+        if(freeStart == getUnprocessedStart()){
+            setUnprocessedSign(true);
+        }
+        setFreeStart(freeStart);
 
     }
 

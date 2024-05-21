@@ -237,68 +237,94 @@ namespace warped
         // Every event GREATER OR EQUAL to straggler event must remove from the processed queue and
         // reinserted back into input queue.
         // EQUAL will ensure that a negative message will properly be cancelled out.
+
+        // if(lp_id ==9673 && straggler_event->timestamp() == 233){
+        //     std::cout<<"before fixpos called\n";
+        //     unified_queue_[lp_id]->debug();
+        // }
       
-        unified_queue_[lp_id]->fixPosition();
-        // if(lp_id ==24){
-        //     std::cout<<"fixpos called\n";
+        // unified_queue_[lp_id]->fixPosition();
+        // if(lp_id ==9673 && straggler_event->timestamp() == 233){
+        //     std::cout<<"\nafter fixpos called\n";
         //     unified_queue_[lp_id]->debug();
         // }
         
         
 
-        if (straggler_event->event_type_ == EventType::NEGATIVE)
-        {
-            compareNegativeEvent compare;
-            if (unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart())) != nullptr &&
+        // if (straggler_event->event_type_ == EventType::NEGATIVE)
+        // {
+        //     compareNegativeEvent compare;
+        //     if (unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart())) != nullptr &&
 
-                compare(
-                    unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart())),
-                    unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart())))
-            {
-                // std::cout<<"-ve event correct order\n";
-                unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart()));
-                unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getUnprocessedStart());
+        //         compare(
+        //             unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart())),
+        //             unified_queue_[lp_id]->getValue(unified_queue_[lp_id]->getUnprocessedStart())))
+        //     {
+        //         // std::cout<<"-ve event correct order\n";
+        //         unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart()));
+        //         unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getUnprocessedStart());
 
                 
-            }
-            else
-            {
-                auto status = unified_queue_[lp_id]->find(straggler_event); //goes and invalidates the +ve event
-                if(status == unified_queue_[lp_id]->FindStatus::UNPROCESSED){
-                        //invalid the negative event
-                        unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart()));
-                }
-                else{
-                    std::cout << "ERROR: negative event not in correct order\n";
-                    std::cout << straggler_event->timestamp() << " is the event lp_id" << lp_id << "\n";
-                    unified_queue_[lp_id]->debug(true, 10);
+        //     }
+        //     else
+        //     {
+        //         auto status = unified_queue_[lp_id]->find(straggler_event); //goes and invalidates the +ve event
+        //         if(status == unified_queue_[lp_id]->FindStatus::UNPROCESSED){
+        //                 //invalid the negative event
+        //                 unified_queue_[lp_id]->invalidateIndex(unified_queue_[lp_id]->getUnprocessedStart());
+        //                 if(lp_id ==9673 && straggler_event->timestamp() == 233){
+        //                     std::cout<<"correct invalidation\n";
+        //                     std::cout<<"Index "<<unified_queue_[lp_id]->prevIndex(unified_queue_[lp_id]->getUnprocessedStart())<<std::endl;
+        //                     unified_queue_[lp_id]->debug();
+        //                 }
+        //         }
+        //         else{
+        //             std::cout << "ERROR: negative event not in correct order\n";
+        //             std::cout << straggler_event->timestamp() << " is the event lp_id" << lp_id << "\n";
+        //             unified_queue_[lp_id]->debug(true, 10);
                     
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
-                    abort();
-                }
+        //             std::this_thread::sleep_for(std::chrono::seconds(1));
+        //             abort();
+        //         }
                 
-            }
-        }
-        else{
-            //this is for positive straggler
-            //to prevent positive straggler event from being processed twice
-            if(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart()) == unified_queue_[lp_id]->getFreeStart()){
-                unified_queue_[lp_id]->setUnprocessedSign(true);
-            }
-            unified_queue_[lp_id]->setUnprocessedStart(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart()));
-
-        }
-        // if(unprocessedStart_ < freeStart_){
-        if(unified_queue_[lp_id]->getUnprocessedStart() > unified_queue_[lp_id]->getFreeStart()){
-            std::cout<<"lp_id "<<lp_id<<"\n";
-        }
-        
-        unified_queue_[lp_id]->sortQueue();
-        // if(lp_id ==24){
-        //     std::cout<<"\n";
-        //     unified_queue_[lp_id]->debug();
-        //     std::cout<<"\nend rollback\n";
+        //     }
         // }
+        // else{
+        //     //this is for positive straggler
+        //     //to prevent positive straggler event from being processed twice
+        //     if(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart()) == unified_queue_[lp_id]->getFreeStart()){
+        //         unified_queue_[lp_id]->setUnprocessedSign(true);
+        //     }
+        //     unified_queue_[lp_id]->setUnprocessedStart(unified_queue_[lp_id]->nextIndex(unified_queue_[lp_id]->getUnprocessedStart()));
+
+        // }
+        // // if(unprocessedStart_ < freeStart_){
+        // if(unified_queue_[lp_id]->getUnprocessedStart() > unified_queue_[lp_id]->getFreeStart()){
+        //     std::cout<<"lp_id "<<lp_id<<"\n";
+        // }
+
+        // if(lp_id ==9673 && straggler_event->timestamp() == 233){
+        //     std::cout<<"\nbefore sortQueue called\n";
+        //     unified_queue_[lp_id]->debug();
+        // }
+        // unified_queue_[lp_id]->sortQueue();
+        // // set freeStart to first invalid Event
+        // uint64_t freeStart = unified_queue_[lp_id]->getFreeStart();
+        // uint64_t temp {freeStart};
+        // for(;freeStart>=unified_queue_[lp_id]->getUnprocessedStart();freeStart--){
+        //     if(!unified_queue_[lp_id]->isDataValid(freeStart)){
+        //         unified_queue_[lp_id]->deleteIndex(freeStart);
+        //     }
+        //     else{
+        //         break;
+        //     }
+        // }
+        // unified_queue_[lp_id]->setFreeStart(freeStart);
+        // if(temp != freeStart){
+        //     unified_queue_[lp_id]->setUnprocessedSign(false);
+        // }
+
+        unified_queue_[lp_id]->rollback(straggler_event);
         
     }
 
@@ -352,8 +378,8 @@ namespace warped
         
         unProcessedStart = unified_queue_[lp_id]->prevIndex(unProcessedStart);
         if(straggler_event->event_type_ == EventType::POSITIVE){
-            //becoz we increament it in rollback if event is positive straggler
-            unProcessedStart = unified_queue_[lp_id]->prevIndex(unProcessedStart);
+        //     //becoz we increament it in rollback if event is positive straggler
+        unProcessedStart = unified_queue_[lp_id]->prevIndex(unProcessedStart);
         }
 
         
@@ -379,7 +405,9 @@ namespace warped
                     std::cerr<<"equal event in coast forward\n";
                     printEvent(straggler_event);
                     printEvent(unified_queue_[lp_id]->getValue(unProcessedStart));
+                    printEvent(restored_state_event);
                     std::cerr<<lp_id<<"\n";
+                    unified_queue_[lp_id]->debug();
                     abort();
                 }
 

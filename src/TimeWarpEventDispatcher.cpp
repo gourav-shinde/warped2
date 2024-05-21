@@ -277,6 +277,9 @@ namespace warped
                 // if(current_lp_id == 6749 && event->timestamp() ==1397){
                 //     event_set_->debugLPQueue(current_lp_id);
                 // }
+                // if(current_lp_id ==2886 && event->timestamp() == 1459){
+                //     event_set_->debugLPQueue(current_lp_id);
+                // }
 
                 if ((last_processed_event!=nullptr &&
                      ((*event < *last_processed_event) ||
@@ -510,9 +513,9 @@ namespace warped
             assert(false);
         }
 
-        event_set_->acquireUnifiedQueueLock(local_lp_id);
+        // eventt_se_->acquireUnifiedQueueLock(local_lp_id);
         event_set_->rollback(local_lp_id, straggler_event);
-        event_set_->releaseUnifiedQueueLock(local_lp_id);
+        // event_set_->releaseUnifiedQueueLock(local_lp_id);
 
         auto restored_state_event = state_manager_->restoreState(straggler_event, local_lp_id,
                                                                  current_lp);
