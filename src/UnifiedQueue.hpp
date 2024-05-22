@@ -690,6 +690,7 @@ public:
     //sorting a portion of the buffer
     //issue with this is if the unprocessed zone is the whole queue, this sorting doesnt work i am hoping this condition never happens, will put a check
     void sortPortion(uint32_t start, uint32_t end) {
+        std::cerr<<"rotated sort called\n";
         int sortedRange = (int(end - start) + capacity()) % capacity();
         if(end ==start){
             std::cerr<<"Unprocessed queue is the whole queue rotated sort aborted\n";

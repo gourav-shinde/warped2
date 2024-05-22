@@ -150,6 +150,8 @@ private:
     // modify it so compareEvents only compares timestamps
 #endif
 
+    std::unique_ptr<std::mutex []> schedule_queue_lock_;
+
     // Map unprocessed queue to a schedule queue
     std::vector<unsigned int> input_queue_scheduler_map_;
 

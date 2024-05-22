@@ -65,6 +65,8 @@ namespace warped
 #endif
         }
 
+        schedule_queue_lock_ = make_unique<std::mutex []>(num_of_schedulers_);
+
         /* Create the data structure for holding the lowest event timestamp */
 
         for (unsigned int i = 0; i <= num_of_worker_threads; i++)
@@ -176,6 +178,7 @@ namespace warped
     auto event = schedule_queue_[scheduler_id]->pop_front();
 
 #else /* STL MultiSet */
+    schedule_queue_lock_[thread_id].lock();
     auto event_iterator = schedule_queue_[thread_id]->begin();
     auto event = (event_iterator != schedule_queue_[thread_id]->end()) ? *event_iterator : nullptr;
     
@@ -184,8 +187,12 @@ namespace warped
         reportEvent(event, thread_id);
         assert(event_iterator!=schedule_queue_[thread_id]->end());
         assert(schedule_queue_[thread_id] != nullptr);
+        assert(event != nullptr);
+        assert(event->timestamp() != 0);
+        // std::cerr<<"event "<<event->timestamp()<<" ";
         schedule_queue_[thread_id]->erase(event_iterator);
     }
+    schedule_queue_lock_[thread_id].unlock();
 #endif
 
         // NOTE: scheduled_event_pointer is not changed here so that other threads will not schedule new
@@ -486,7 +493,9 @@ namespace warped
                 // }
                 assert(scheduled_event_pointer_[lp_id] != nullptr);
                 assert(schedule_queue_[scheduler_id]!=nullptr);
+                schedule_queue_lock_[scheduler_id].lock();
                 schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
+                schedule_queue_lock_[scheduler_id].unlock();
 
                 reportEvent(scheduled_event_pointer_[lp_id], thread_id);
             }
@@ -537,7 +546,9 @@ namespace warped
             // }
             assert(scheduled_event_pointer_[lp_id] != nullptr);
             assert(schedule_queue_[scheduler_id]!=nullptr);
+            schedule_queue_lock_[scheduler_id].lock();
             schedule_queue_[scheduler_id]->insert(scheduled_event_pointer_[lp_id]);
+            schedule_queue_lock_[scheduler_id].unlock();
             reportEvent(scheduled_event_pointer_[lp_id], thread_id);
         }
 
