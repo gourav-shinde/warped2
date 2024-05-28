@@ -189,13 +189,9 @@ namespace warped
 
             if (event != nullptr)
             {
-#ifdef TIMEWARP_EVENT_LOG
-                // Event stat - start processing time, sender name, receiver name, timestamp
-                auto event_stats = std::to_string((std::chrono::steady_clock::now() - epoch).count());
-                event_stats += "," + event->sender_name_;
-                event_stats += "," + event->receiverName();
-                event_stats += "," + std::to_string(event->timestamp());
-#endif
+                bool debug = false;
+                
+                
                 // maybe report min(last_processed_event and event->timestamp())
                 // make if so if we are in gvt calculation all lp for same threadid are reported
                 // means we are in gvt calculation
@@ -224,6 +220,7 @@ namespace warped
                         }
                     }
                 }
+                
                 gvt_manager_->reportThreadMin(event_set_->lowestTimestamp(thread_id), thread_id, local_gvt_flag, event_set_->schedule_cycle_);
 
                 // Make sure that if this thread is currently seen as passive, we update it's state
@@ -234,8 +231,9 @@ namespace warped
                 }
 
                 assert(comm_manager_->getNodeID(event->receiverName()) == comm_manager_->getID());
-                unsigned int current_lp_id = local_lp_id_by_name_[event->receiverName()];
                 LogicalProcess *current_lp = lps_by_name_[event->receiverName()];
+                unsigned int current_lp_id = local_lp_id_by_name_[event->receiverName()];
+                
 
                 // Get the last processed event so we can check for a rollback
 
@@ -280,6 +278,7 @@ namespace warped
                 // if(current_lp_id ==2886 && event->timestamp() == 1459){
                 //     event_set_->debugLPQueue(current_lp_id);
                 // }
+                
 
                 if ((last_processed_event!=nullptr &&
                      ((*event < *last_processed_event) ||
@@ -313,6 +312,9 @@ namespace warped
                     event_set_->startScheduling(current_lp_id, thread_id);
                     tw_stats_->upCount(CANCELLED_EVENTS, thread_id);
                     continue;
+                }
+                if(debug){
+                    std::cerr<<"thread_id: "<<thread_id<<" positive event processed\n";
                 }
 
                 // process event and get new events
@@ -534,9 +536,9 @@ namespace warped
             cancelEvents(std::move(events_to_cancel));
         }
 
-        event_set_->acquireUnifiedQueueLock(local_lp_id);
+        
         coastForward(straggler_event, restored_state_event);
-        event_set_->releaseUnifiedQueueLock(local_lp_id);
+        
 
         // Restore state by getting most recent saved state before the straggler and coast forwarding.
     }

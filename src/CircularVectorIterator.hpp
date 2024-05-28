@@ -1,5 +1,3 @@
-#define CIRCULAR_VECTOR_ITERATOR_HPP
-
 #include <iostream>
 #include <vector>
 #include <iterator>
@@ -48,14 +46,13 @@ public:
     }
 
     reference operator[](difference_type n) {
-        auto dist = std::distance(vec->begin(), current);
-        return *(*this + ((dist + n) % vec->size()));
+        return *(*this + n);
     }
 
     CircularVectorIterator& operator+=(difference_type n) {
         auto sz = vec->size();
         auto dist = std::distance(vec->begin(), current);
-        current = vec->begin() + ((dist + n) % sz);
+        current = vec->begin() + ((dist + n + sz) % sz) % sz;
         return *this;
     }
 
@@ -79,6 +76,7 @@ public:
     }
 
     CircularVectorIterator& operator-=(difference_type n) {
+        // std::cerr<<"this called2\n";
         return (*this += -n);
     }
 
@@ -114,4 +112,39 @@ public:
 template <typename T>
 CircularVectorIterator<T> make_circular_iterator(std::vector<T>& vec, int start) {
     return CircularVectorIterator<T>(vec, start);
+}
+
+
+/*
+Description : QuickSort in Iterator format
+Created     : 2019/03/04 
+Author      : Knight-金 (https://stackoverflow.com/users/3547485)
+Link        : https://stackoverflow.com/a/54976413/3547485
+
+Ref: http://www.cs.fsu.edu/~lacher/courses/COP4531/lectures/sorts/slide09.html
+*/
+
+template <typename RandomIt, typename Compare>
+void QuickSort(RandomIt first, RandomIt last, Compare compare)
+{
+    if (std::distance(first, last)>1){
+        RandomIt bound = Partition(first, last, compare);
+        QuickSort(first, bound, compare);
+        QuickSort(bound+1, last, compare);
+    }
+}
+
+template <typename RandomIt, typename Compare>
+RandomIt Partition(RandomIt first, RandomIt last, Compare compare)
+{
+    auto pivot = std::prev(last, 1);
+    auto i = first;
+    for (auto j = first; j != pivot; ++j){
+        // bool format 
+        if (compare(*j, *pivot)){
+            std::swap(*i++, *j);
+        }
+    }
+    std::swap(*i, *pivot);
+    return i;
 }

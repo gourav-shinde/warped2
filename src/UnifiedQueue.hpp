@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include "CircularVectorIterator.hpp"
 #include "Event.hpp"
+#include <memory>
 
 #include <chrono>
 #include <thread>
@@ -16,6 +17,10 @@
 // and returns true if the first element is smaller than the second
 // T: queue_Type
 // comparator: compare_ function which return A<B
+
+
+
+
 template <typename T, typename comparator, typename negativeCounterPart>
 class UnifiedQueue
 /**
@@ -84,11 +89,19 @@ private:
     uint32_t capacity_;
 
     
-    // bool sortfunction(Data a, Data b) { return compare_(a.getData(), b.getData()); };
+     void printEvent2(std::shared_ptr<warped::Event> event)
+    {
+        std::cout << "\tSender:     " << event->sender_name_ << "\n"
+                    << "\tReceiver:   " << event->receiverName() << "\n"
+                    << "\tSend time:  " << event->send_time_ << "\n"
+                    << "\tRecv time:  " << event->timestamp() << "\n"
+                    << "\tGeneratrion:" << event->generation_ << "\n"
+                    << "\tType:       " << (unsigned int)event->event_type_ << "\n";
+    }
     
 public:
-    UnifiedQueue(uint16_t capacity=2048){
-        if(capacity > 2048){
+    UnifiedQueue(uint16_t capacity=1024){
+        if(capacity > 1024){
             throw std::invalid_argument("Capacity should be less than 1024");
         }
         queue_.resize(capacity); 
@@ -460,7 +473,8 @@ public:
 
     void deleteIndex(uint64_t index){
         queue_[index].validate();
-        queue_[index].getData().reset();
+        // queue_[index].getData().reset();
+        // queue_[index].data_ = nullptr;
     }
 
 
@@ -686,19 +700,35 @@ public:
 
     }
 
+    void checknullptr(uint32_t start,uint32_t end){
+        for(uint32_t i = start; i != end; i = nextIndex(i)){
+            if(queue_[i].getData() == nullptr){
+                std::cerr<<"nullptr found at "<<i<<"\n";
+                debug();
+                abort();
+            }
+        }
+
+    }
 
     //sorting a portion of the buffer
     //issue with this is if the unprocessed zone is the whole queue, this sorting doesnt work i am hoping this condition never happens, will put a check
     void sortPortion(uint32_t start, uint32_t end) {
-        std::cerr<<"rotated sort called\n";
+        // std::cerr<<"rotated sort called\n";
+        // debug();
         int sortedRange = (int(end - start) + capacity()) % capacity();
+        
+        
         if(end ==start){
             std::cerr<<"Unprocessed queue is the whole queue rotated sort aborted\n";
         }
+
+        std::mutex comparatorMutex;
         // Custom comparator function for sorting
         auto comp =  [&](Data& a, Data& b) { 
+            std::lock_guard<std::mutex> lock(comparatorMutex);
             if(a.valid_ && b.valid_){
-            return compare_(a.getData(), b.getData());
+                return compare_(a.getData(), b.getData());
             }
             else if(a.valid_ && !b.valid_){
                 return true;
@@ -715,8 +745,25 @@ public:
 
         
         auto it = make_circular_iterator(queue_, start);
-        std::sort(it, it + sortedRange, comp);
+        
+        QuickSort(it, it + sortedRange , comp);
+
+        // debug();
+        // abort();
+        
+        
     }
+
+
+    
+
+
+
+
+
+
+
+    //solution end
 
     void sortQueue(){
         if(isUnprocessedZoneEmpty()){
@@ -751,7 +798,7 @@ public:
             std::sort(queue_.begin() + unprocessedStart_, queue_.begin() + freeStart_ , comp);
         }
         else{ //rotation
-            sortPortion(unprocessedStart_, freeStart_);
+            sortPortion(unprocessedStart_, freeStart_); 
         }
     }
 
@@ -973,6 +1020,7 @@ public:
                     debug();
                 }
                 deleteIndex(eventPointer);
+                // queue_[eventPointer].data_=nullptr;
                 eventPointer = nextIndex(eventPointer);
             }
             if(eventPointer != getActiveStart()){
@@ -1015,6 +1063,7 @@ public:
                     debug();
                 }
                 deleteIndex(activeStart);
+                queue_[activeStart].data_=nullptr;
                 activeStart = nextIndex(activeStart);
 
             }
@@ -1036,10 +1085,7 @@ public:
             auto status = find(straggler_event); //goes and invalidates the +ve event
             // debug();
             if(status == FindStatus::UNPROCESSED){
-                // std::cerr<<"Invalidating a negative event at "<<getUnprocessedStart()<<"\n";
-                invalidateIndex(getUnprocessedStart()); 
-
-                // debug(); 
+                invalidateIndex(getUnprocessedStart());
             }
             else{
                 std::cout << "ERROR: negative event not in correct order\n";
@@ -1068,6 +1114,7 @@ public:
             if(!isDataValid(prevIndex(freeStart))){
                 // std::cerr<<"deleteing something\n";
                 deleteIndex(prevIndex(freeStart));
+                // queue_[prevIndex(freeStart)].data_=nullptr;
             }
             else{
                 // std::cerr<<"breaking\n";
@@ -1077,7 +1124,7 @@ public:
         }
         
         if(temp != freeStart){
-            setUnprocessedSign(false);
+            setFreeSign(false);
         }
         if(freeStart == getUnprocessedStart()){
             setUnprocessedSign(true);
@@ -1086,5 +1133,78 @@ public:
 
     }
 
+    std::unique_ptr<std::vector<T>> getCoastEvent(T straggler_event, T restored_state_event, uint32_t lp_id = 0){
+        std::lock_guard<std::mutex> lock(lock_);
+
+        auto events = std::make_unique<std::vector<T>>();
+        
+        
+        uint64_t unProcessedStart = getUnprocessedStart();
+        // uint32_t freeStart = unified_queue_[lp_id]->getFreeStart();
+        uint64_t activeStart = getActiveStart();
+
+        if(activeStart == unProcessedStart){
+            return events;
+        }
+        
+        unProcessedStart = prevIndex(unProcessedStart);
+        unProcessedStart = prevIndex(unProcessedStart);
+ 
+
+        while (getValue(unProcessedStart)!=nullptr && compare_(restored_state_event ,getValue(unProcessedStart)))
+        {
+            
+            if(isDataValid(unProcessedStart) &&  compare_(straggler_event, getValue(unProcessedStart))){
+                std::cerr<<"ERROR: straggler event is bigger than event in coast forward "<<lp_id <<"\n";
+                printEvent2(straggler_event);
+                printEvent2(getValue(unProcessedStart));
+                printEvent2(restored_state_event);
+                std::cerr<<unProcessedStart<<"\n";
+                debug(true, 20);
+                debug();
+                sortQueue();
+                std::cerr<<"after sort?\n";
+                debug();
+                abort();
+            }
+            
+            // std::cout<<"unProcessedStart: "<<unProcessedStart<<"\n";
+            if (isDataValid(unProcessedStart))
+            {
+                if(straggler_event == getValue(unProcessedStart)){
+                    std::cerr<<"equal event in coast forward "<<lp_id <<"\n";
+                    printEvent2(straggler_event);
+                    printEvent2(getValue(unProcessedStart));
+                    printEvent2(restored_state_event);
+                    debug();
+                    std::cerr<<"after sort?\n";
+                    debug();
+                    abort();
+                }
+                events->push_back(getValue(unProcessedStart));
+
+                if (getValue(unProcessedStart)->event_type_ == warped::EventType::NEGATIVE)
+                {
+                    std::cout << "ERROR: negative event in coast forward\n";
+                    std::cout << "timestamp " << getValue(unProcessedStart)->timestamp() << "\n";
+                    printEvent2(straggler_event);
+                    printEvent2(restored_state_event);
+                    debug(true, 10);
+                    abort();
+                }
+
+            }
+            if(unProcessedStart == activeStart){
+                //worth taking a look at
+                break;
+            }
+            
+            unProcessedStart = prevIndex(unProcessedStart);
+
+            
+        }
+        
+        return events;
+    }
 
 };
