@@ -100,8 +100,8 @@ private:
     }
     
 public:
-    UnifiedQueue(uint16_t capacity=1024){
-        if(capacity > 1024){
+    UnifiedQueue(uint16_t capacity=2048){
+        if(capacity > 2048){
             throw std::invalid_argument("Capacity should be less than 1024");
         }
         queue_.resize(capacity); 
@@ -1134,7 +1134,7 @@ public:
     }
 
     std::unique_ptr<std::vector<T>> getCoastEvent(T straggler_event, T restored_state_event, uint32_t lp_id = 0){
-        std::lock_guard<std::mutex> lock(lock_);
+        // std::lock_guard<std::mutex> lock(lock_);
 
         auto events = std::make_unique<std::vector<T>>();
         
