@@ -32,6 +32,7 @@ Simulation::Simulation(const std::string& config_file_name, unsigned int max_sim
     : config_(config_file_name, max_sim_time) {}
 
 void Simulation::simulate(const std::vector<LogicalProcess*>& lps) {
+    std::ios_base::sync_with_stdio(false);
     check(lps);
 
     auto comm_manager = config_.makeCommunicationManager();

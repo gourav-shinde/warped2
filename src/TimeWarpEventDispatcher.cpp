@@ -161,7 +161,7 @@ namespace warped
 
         if (comm_manager_->getID() == 0)
         {
-            std::cout << "GVT: " << gvt << std::endl;
+            std::cout << "GVT: " << gvt << "\n";
         }
 
         uint64_t c = tw_stats_->upCount(GVT_CYCLES, num_worker_threads_);
