@@ -473,8 +473,8 @@ public:
 
     void deleteIndex(uint64_t index){
         queue_[index].validate();
-        // queue_[index].getData().reset();
-        // queue_[index].data_ = nullptr;
+        queue_[index].getData().reset();
+        queue_[index].data_ = nullptr;
     }
 
 
@@ -495,7 +495,7 @@ public:
         
         std::lock_guard<std::mutex> lock(lock_);
        
-        enqueue_counter_++;
+        // enqueue_counter_++;
         uint64_t insertPos = getUnprocessedStart();
         
         if (isFull()){
@@ -508,16 +508,6 @@ public:
             std::cout<<"Rollback Counter: "<<rollback_counter_<<std::endl;
             std::cout<<"Rollback Function Counter: "<<rollback_function_counter_<<std::endl;
             abort();
-
-            //reset all invalid events in unprocessed zone and refactor
-            // uint63_t unprocessedStart = getUnprocessedStart();
-            // uint63_t freeStart = getFreeStart();
-            // while(unprocessedStart != freeStart){
-            //     if(!queue_[unprocessedStart].isValid()){
-            //         queue_[unprocessedStart].validate();
-            //     }
-            //     unprocessedStart = nextIndex(unprocessedStart);
-            // }
         }
 
         uint64_t marker = marker_;
@@ -536,17 +526,12 @@ public:
             insertPos = UnprocessedStart(markerCopy);
         }
         else{
-            // uint64_t UnprocessedStart = UnprocessedStart(markerCopy);
-            // uint64_t FreeStart = FreeStart(markerCopy);
-            // unused(FreeStart);
-            // unused(UnprocessedStart);
             insertPos = findInsertPosition(element, UnprocessedStart(markerCopy), FreeStart(markerCopy));
             
             if(negative){
                 if(queue_[insertPos].getData()!=nullptr && negativeCounterPart_(queue_[insertPos].getData(), element)){
                     queue_[insertPos].invalidate();
                     insertPos = INT32_MAX;
-                    // std::cout<<"JUMBOOOOOOO";
                 }
                 else{
                     //didnt find positive counterpart and we insert
@@ -562,18 +547,6 @@ public:
             }
         }
 
-        // if(!queue_[prevIndex(FreeStart(marker))].isValid()){
-        //     setFreeStart(prevIndex(FreeStart(marker)));
-        //     setFreeSign(false);
-        //     if(getFreeStart() == getUnprocessedStart()){
-        //         setUnprocessedSign(true);
-        //     }
-            
-        //     deleteIndex(getFreeStart());
-        // }
-        
-
-        // std::this_thread::sleep_for(std::chrono::milliseconds(10));
         return insertPos;
     }
 
@@ -663,24 +636,10 @@ public:
         uint64_t marker = marker_;
         uint64_t markerCopy = marker;
         
-        #ifdef GTEST_FOUND
-            std::cout<<"increamentActiveStart called "<<std::endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        #endif
-        
-                
-        // uint16_t ActiveIndex = ActiveStart(markerCopy);
         uint16_t UnProcessedIndex = UnprocessedStart(markerCopy);
         uint16_t FreeIndex = FreeStart(markerCopy);
         
-        // while(ActiveIndex != UnProcessedIndex){
-            
-        //     if(queue_[ActiveIndex].getData() == element){
-        //         found = ACTIVE; //rollback
-        //         break;
-        //     }
-        //     ActiveIndex = nextIndex(ActiveIndex);
-        // }
+
         
         while(UnProcessedIndex != FreeIndex){
             
@@ -692,10 +651,6 @@ public:
             UnProcessedIndex = nextIndex(UnProcessedIndex);
         }
             
-            
-            
-            
-        
         return found;
 
     }
@@ -714,8 +669,7 @@ public:
     //sorting a portion of the buffer
     //issue with this is if the unprocessed zone is the whole queue, this sorting doesnt work i am hoping this condition never happens, will put a check
     void sortPortion(uint32_t start, uint32_t end) {
-        // std::cerr<<"rotated sort called\n";
-        // debug();
+        
         int sortedRange = (int(end - start) + capacity()) % capacity();
         
         
@@ -723,10 +677,9 @@ public:
             std::cerr<<"Unprocessed queue is the whole queue rotated sort aborted\n";
         }
 
-        std::mutex comparatorMutex;
+        
         // Custom comparator function for sorting
         auto comp =  [&](Data& a, Data& b) { 
-            std::lock_guard<std::mutex> lock(comparatorMutex);
             if(a.valid_ && b.valid_){
                 return compare_(a.getData(), b.getData());
             }
@@ -814,10 +767,7 @@ public:
         uint64_t marker = marker_;
         uint64_t activeStart = ActiveStart(marker);
 
-#ifdef GTEST_FOUND
-        std::cout << "Fixposition called " << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-#endif
+
         //find index to swap with
 
         //get previous valid event from unprocessed start
@@ -898,7 +848,7 @@ public:
     /// @brief returns previous valid unproceesed event
     /// @return 
     T getPreviousUnprocessedEvent(){
-        std::lock_guard<std::mutex> lock(lock_);
+        // std::lock_guard<std::mutex> lock(lock_);
         T element = nullptr;
         
         //this is called after a dequeue so we need it to go before it
@@ -997,13 +947,13 @@ public:
 
 
     uint32_t fossilCollect(unsigned int fossilCollectTime, uint32_t lp_id = 0 ){
-        std::lock_guard<std::mutex> lock(lock_);
+        // std::lock_guard<std::mutex> lock(lock_);
         uint32_t count {0};
         if(fossilCollectTime != (unsigned int)-1){
 
             uint64_t eventPointer = getActiveStart();
             
-            while (getValue(eventPointer)->timestamp() <= fossilCollectTime &&
+            while (getValue(eventPointer)->timestamp() < fossilCollectTime &&
                 eventPointer != getUnprocessedStart())
             {
                 
@@ -1134,7 +1084,7 @@ public:
     }
 
     std::unique_ptr<std::vector<T>> getCoastEvent(T straggler_event, T restored_state_event, uint32_t lp_id = 0){
-        // std::lock_guard<std::mutex> lock(lock_);
+        std::lock_guard<std::mutex> lock(lock_);
 
         auto events = std::make_unique<std::vector<T>>();
         
