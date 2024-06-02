@@ -201,25 +201,24 @@ namespace warped
                     // report every lp for this thread
                     if (thread_id == 0)
                     {
-                        for (uint32_t lp_id_num = 0; lp_id_num < event_set_->lp_size_per_thread[thread_id]; lp_id_num++)
+                        for (uint32_t lp_id_num = 0; lp_id_num < event_set_->lp_size_per_thread[thread_id]; ++lp_id_num)
                         {
                            
                             event_set_->reportLastUnprocessedEvent(lp_id_num, thread_id);
                             // event_set_->reportEvent(event_set_->getUnprocessedStartValue(lp_id_num),thread_id);
-                            
+
                         }
                     }
                     else
                     {
-                        for (uint32_t lp_id_num = event_set_->lp_size_per_thread[thread_id - 1]; lp_id_num < event_set_->lp_size_per_thread[thread_id]; lp_id_num++)
+                        for (uint32_t lp_id_num = event_set_->lp_size_per_thread[thread_id - 1]; lp_id_num < event_set_->lp_size_per_thread[thread_id]; ++lp_id_num)
                         {
                             event_set_->reportLastUnprocessedEvent(lp_id_num, thread_id);
                             // event_set_->reportEvent(event_set_->getUnprocessedStartValue(lp_id_num),thread_id);
-
-                            
                         }
                     }
                 }
+
                 
                 gvt_manager_->reportThreadMin(event_set_->lowestTimestamp(thread_id), thread_id, local_gvt_flag, event_set_->schedule_cycle_);
 
@@ -278,6 +277,7 @@ namespace warped
                 // if(current_lp_id ==2886 && event->timestamp() == 1459){
                 //     event_set_->debugLPQueue(current_lp_id);
                 // }
+                // event_set_->reportLastUnprocessedEvent(current_lp_id, thread_id);
                 
 
                 if ((last_processed_event!=nullptr &&

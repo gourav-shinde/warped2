@@ -474,7 +474,7 @@ public:
     void deleteIndex(uint64_t index){
         queue_[index].validate();
         queue_[index].getData().reset();
-        queue_[index].data_ = nullptr;
+        // queue_[index].data_ = nullptr;
     }
 
 
@@ -848,7 +848,7 @@ public:
     /// @brief returns previous valid unproceesed event
     /// @return 
     T getPreviousUnprocessedEvent(){
-        // std::lock_guard<std::mutex> lock(lock_);
+        std::lock_guard<std::mutex> lock(lock_);
         T element = nullptr;
         
         //this is called after a dequeue so we need it to go before it
@@ -947,11 +947,17 @@ public:
 
 
     uint32_t fossilCollect(unsigned int fossilCollectTime, uint32_t lp_id = 0 ){
-        // std::lock_guard<std::mutex> lock(lock_);
+        std::lock_guard<std::mutex> lock(lock_);
         uint32_t count {0};
         if(fossilCollectTime != (unsigned int)-1){
 
             uint64_t eventPointer = getActiveStart();
+            if(getValue(eventPointer) == nullptr){
+                std::cerr<<"ERROR: null event in fossil collect\n";
+                std::cerr<<"lp_id: "<<lp_id<<"\n";
+                debug();
+                abort();
+            }
             
             while (getValue(eventPointer)->timestamp() < fossilCollectTime &&
                 eventPointer != getUnprocessedStart())
@@ -970,7 +976,7 @@ public:
                     debug();
                 }
                 deleteIndex(eventPointer);
-                // queue_[eventPointer].data_=nullptr;
+                queue_[eventPointer].data_=nullptr;
                 eventPointer = nextIndex(eventPointer);
             }
             if(eventPointer != getActiveStart()){
