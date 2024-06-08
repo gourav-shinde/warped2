@@ -1,1 +1,1 @@
-SUBDIRS = json metis 
+SUBDIRS = json metis cereal
