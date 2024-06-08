@@ -58,8 +58,8 @@ protected:
     unsigned int recv_min_;
 
     pthread_barrier_t gvt_barrier1_;
-    // pthread_barrier_t gvt_barrier2_;
-    // pthread_barrier_t gvt_barrier3_;
+    pthread_barrier_t gvt_barrier2_;
+    pthread_barrier_t gvt_barrier3_;
     // pthread_barrier_t gvtSendEventsBarrier_;
 
 };

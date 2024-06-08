@@ -100,8 +100,8 @@ private:
     }
     
 public:
-    UnifiedQueue(uint16_t capacity=2048){
-        if(capacity > 2048){
+    UnifiedQueue(uint16_t capacity=2000){
+        if(capacity > 2000){
             throw std::invalid_argument("Capacity should be less than 1024");
         }
         queue_.resize(capacity); 
@@ -1060,7 +1060,7 @@ public:
         setUnprocessedStart(nextIndex(getUnprocessedStart()));
 
         sortQueue();
-
+        
 
         //this section decreaments the freeStart to first invalid event
 
@@ -1070,7 +1070,7 @@ public:
             if(!isDataValid(prevIndex(freeStart))){
                 // std::cerr<<"deleteing something\n";
                 deleteIndex(prevIndex(freeStart));
-                // queue_[prevIndex(freeStart)].data_=nullptr;
+                queue_[prevIndex(freeStart)].data_=nullptr;
             }
             else{
                 // std::cerr<<"breaking\n";

@@ -203,7 +203,7 @@ namespace warped
                     {
                         for (uint32_t lp_id_num = 0; lp_id_num < event_set_->lp_size_per_thread[thread_id]; ++lp_id_num)
                         {
-                           
+                            // std::cout<<lp_id_num<<"\n";
                             event_set_->reportLastUnprocessedEvent(lp_id_num, thread_id);
                             // event_set_->reportEvent(event_set_->getUnprocessedStartValue(lp_id_num),thread_id);
 
@@ -213,6 +213,7 @@ namespace warped
                     {
                         for (uint32_t lp_id_num = event_set_->lp_size_per_thread[thread_id - 1]; lp_id_num < event_set_->lp_size_per_thread[thread_id]; ++lp_id_num)
                         {
+                            
                             event_set_->reportLastUnprocessedEvent(lp_id_num, thread_id);
                             // event_set_->reportEvent(event_set_->getUnprocessedStartValue(lp_id_num),thread_id);
                         }
@@ -221,7 +222,7 @@ namespace warped
 
                 
                 gvt_manager_->reportThreadMin(event_set_->lowestTimestamp(thread_id), thread_id, local_gvt_flag, event_set_->schedule_cycle_);
-
+                
                 // Make sure that if this thread is currently seen as passive, we update it's state
                 //  so we don't terminate early.
                 if (termination_manager_->threadPassive(thread_id))

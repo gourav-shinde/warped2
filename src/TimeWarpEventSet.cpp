@@ -49,9 +49,11 @@ namespace warped
             }
             lp_size_per_thread.push_back(lps[scheduler_id].size());
         }
+        
         for(unsigned int i = 1; i < num_of_schedulers_; i++){
             lp_size_per_thread[i] += lp_size_per_thread[i-1];
         }
+        
 
         /* Create the schedule queues */
         for (unsigned int scheduler_id = 0; scheduler_id < num_of_schedulers_; scheduler_id++)

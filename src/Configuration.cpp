@@ -121,6 +121,7 @@ void update(Json::Value& a, Json::Value& b) {
 }
 
 Json::Value parseJsonFile(std::string filename) {
+    std::cout<<filename<<std::endl;
     Json::Reader reader;
     std::ifstream input(filename);
 
