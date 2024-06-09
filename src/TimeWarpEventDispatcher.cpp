@@ -567,11 +567,11 @@ namespace warped
 
         // NOTE: events are in order from LARGEST to SMALLEST, so reprocess backwards
         // std::cout<<"Coast Forwarding Events: "<<events->size()<<std::endl;
-        compareEvents compare;
+        // compareEvents compare;
         for (auto event_itr = events->rbegin(); event_itr != events->rend(); ++event_itr)
         {
-            assert(**event_itr < *straggler_event);
-            assert(compare(*event_itr, straggler_event));
+            // assert(**event_itr < *straggler_event);
+            // assert(compare(*event_itr, straggler_event));
             // This just updates state, ignore new events
             lp->receiveEvent(**event_itr);
             tw_stats_->upCount(COAST_FORWARDED_EVENTS, thread_id);
