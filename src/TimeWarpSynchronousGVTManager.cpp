@@ -67,7 +67,6 @@ void TimeWarpSynchronousGVTManager::progressGVT() {
         gvt_updated_ = true;
 
         color_.store(Color::WHITE);
-        pthread_barrier_wait(&gvt_barrier_3);
         local_gvt_flag_.store(0);
         pthread_barrier_wait(&gvt_barrier_3);
 
