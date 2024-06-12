@@ -69,6 +69,11 @@ private:
     //create variable for shifts too
 
     //define masks
+    std::atomic<uint64_t> enqueue_counter_ = 0;
+    std::atomic<uint64_t> dequeue_counter_ = 0;
+    std::atomic<uint64_t> rollback_counter_ = 0;
+    std::atomic<uint64_t> rollback_function_counter_ = 0;
+    std::atomic<uint64_t> invalid_counter_ = 0;
     const uint64_t freeStartMask_ = 0x000000000000FFFF;
     const uint64_t freeSignMask_ = 0x0000000000010000;
     const uint64_t unprocessedStartMask_ = 0x00000001FFFE0000;
@@ -409,25 +414,11 @@ public:
         // This will never trigger, as this condition is checked in the parent function
         // if (isEmpty())
         //     return getFreeStart();
-        auto comp =  [&](Data& a, Data& b) { 
-            if(a.valid_ && b.valid_){
-                return compare_(a.getData(), b.getData());
-            }
-            else if(a.valid_ && !b.valid_){
-                return true;
-            }
-            else if(!a.valid_ && b.valid_){
-                return false;
-            }
-            else{
-                return false;
-            }
-        };
 
         while (low < high) {
             mid = ceil((low + high) / 2);
 
-            if (comp(queue_[mid].getData(), element)) {
+            if (this->compare_(queue_[mid].getData(), element)) {
                 low = (mid + 1) % capacity();
             }
             else {
@@ -460,24 +451,24 @@ public:
 
     uint64_t findInsertPosition(T element, uint64_t low, uint64_t high){
         
-        // if (low == high && isFull() == 0){
-        //     return getUnprocessedStart();
-        // }
-        // return linearSearch(element, low, high);
+        if (low == high && isFull() == 0){
+            return getUnprocessedStart();
+        }
+        return linearSearch(element, low, high);
 
-        // when there is no rotation in queue
-        if (low < high) {
-            return binarySearch(element, low, high);
-        }
-        // rotation i.e fossileStart_ < activeStart_
-        else {
-            if (compare_(element, queue_[capacity() - 1].getData())) {
-                return binarySearch(element, low, capacity() - 1);
-            }
-            else {
-                return binarySearch(element, 0, high);
-            }
-        }
+        // // when there is no rotation in queue
+        // if (low < high) {
+        //     return binarySearch(element, low, high);
+        // }
+        // // rotation i.e fossileStart_ < activeStart_
+        // else {
+        //     if (compare_(element, queue_[capacity() - 1].getData())) {
+        //         return binarySearch(element, low, capacity() - 1);
+        //     }
+        //     else {
+        //         return binarySearch(element, 0, high);
+        //     }
+        // }
     }
 
     void deleteIndex(uint64_t index){
@@ -511,6 +502,11 @@ public:
             //throw message
             this->debug();
             std::cout << "Queue is full" << std::endl;
+            // std::__throw_bad_exception();
+            std::cout<<"Enqueue Counter: "<<enqueue_counter_<<std::endl;
+            std::cout<<"Dequeue Counter: "<<dequeue_counter_<<std::endl;
+            std::cout<<"Rollback Counter: "<<rollback_counter_<<std::endl;
+            std::cout<<"Rollback Function Counter: "<<rollback_function_counter_<<std::endl;
             abort();
         }
 
@@ -588,6 +584,7 @@ public:
             marker_= marker;
             if(queue_[UnprocessedStart(markerCopy)].isValid()){//this will make it so the function retrives next element if invalid element is found
                 success = true;
+                dequeue_counter_++;
             }
                     
             
@@ -762,6 +759,7 @@ public:
     /// @brief This fixes the position of the events
     /// No Markers change
     bool fixPosition(bool debug = false) {
+        rollback_function_counter_++;
         if (getActiveStart() == getUnprocessedStart() && !isFull()) {//active zone is empty
             return false;
         }
@@ -795,6 +793,7 @@ public:
             std::swap(queue_[prevIndex(swap_index_r)], queue_[swap_index_r]);
             
             swap_index_r = prevIndex(swap_index_r);
+            rollback_counter_++;
             setUnprocessedSign(false);
             setUnprocessedStart(swap_index_r);
             
@@ -941,12 +940,14 @@ public:
 
     //invalids the data at index
     void invalidateIndex(uint64_t index){
+        invalid_counter_++;
         queue_[index].invalidate();
     }
 
 
 
     uint32_t fossilCollect(unsigned int fossilCollectTime, uint32_t lp_id = 0 ){
+        std::lock_guard<std::mutex> lock(lock_);
         uint32_t count {0};
         if(fossilCollectTime != (unsigned int)-1){
 
