@@ -17,7 +17,9 @@ enum class EventType : bool {
 // serializable. See serialization.hpp for info on serializing Events.
 class Event {
 public:
-    Event() = default;
+    Event() {
+
+    };
     virtual ~Event() {}
 
     bool operator== (const Event &other) {
@@ -67,6 +69,9 @@ public:
                             sizeof(generation_);
         return size;
     }
+    void generateHash(){
+        senderHashId_ = std::hash<std::string>{}(sender_name_);
+    }
 
     // The name of the SimualtionObject that sends this event.
     std::string sender_name_;
@@ -77,6 +82,7 @@ public:
     // Send time
     unsigned int send_time_ = 0;
 
+    std::uint64_t senderHashId_{0};
     // For differentiating same events which is caused by
     //  anti-message + regeneration of event.
     unsigned long long generation_ = 0;
@@ -95,6 +101,7 @@ public:
         send_time_ = e->send_time_;
         event_type_ = EventType::NEGATIVE;
         generation_ = e->generation_;
+        senderHashId_ = e->senderHashId_;
     }
 
     const std::string& receiverName() const {return receiver_name_;}
@@ -135,8 +142,8 @@ public:
                 ((first->timestamp() != second->timestamp()) ? false :
                   ((first->send_time_ < second->send_time_) ? true :
                   ((first->send_time_ != second->send_time_) ? false :
-                    ((first->sender_name_ < second->sender_name_) ? true :
-                    ((first->sender_name_ != second->sender_name_) ? false :
+                    ((first->senderHashId_ < second->senderHashId_) ? true :
+                    ((first->senderHashId_ != second->senderHashId_) ? false :
                       ((first->generation_ < second->generation_) ? true :
                       ((first->generation_ != second->generation_) ? false :
                         ((first->event_type_ < second->event_type_) ? true :
