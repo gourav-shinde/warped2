@@ -108,9 +108,9 @@ bool TimeWarpSynchronousGVTManager::gvtUpdated() {
 void TimeWarpSynchronousGVTManager::reportThreadMin(unsigned int timestamp, unsigned int thread_id,
                                                     unsigned int local_gvt_flag) {
     if (local_gvt_flag > 0) {
-        pthread_barrier_wait(&gvt_barrier_1);
+        
         local_min_[thread_id] = timestamp;
-
+        pthread_barrier_wait(&gvt_barrier_1);
         pthread_barrier_wait(&gvt_barrier_2);
         pthread_barrier_wait(&gvt_barrier_3);
     }
