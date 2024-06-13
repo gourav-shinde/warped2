@@ -76,6 +76,8 @@ private:
 
     void processEvents(unsigned int id);
 
+    void fossilManager(unsigned int id);
+
 #ifdef TIMEWARP_EVENT_LOG
     std::string eventLogFileName(unsigned int thread_id) {
         return "eventlog_worker_" + std::to_string(thread_id) + ".csv";

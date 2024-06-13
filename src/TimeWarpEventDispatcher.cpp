@@ -88,6 +88,12 @@ void TimeWarpEventDispatcher::startSimulation(const std::vector<std::vector<Logi
         threads.push_back(std::move(thread));
     }
 
+    // create fossil manager thread oush in the threads vector
+    auto fossil_thread(std::thread {&TimeWarpEventDispatcher::fossilManager, this});
+    threads.push_back(std::move(fossil_thread));
+
+
+
     unsigned int gvt = 0;
     auto sim_start = std::chrono::steady_clock::now();
 
@@ -288,33 +294,33 @@ void TimeWarpEventDispatcher::processEvents(unsigned int id) {
 #endif
 
             // Check for recent gvt update
-            gvt = gvt_manager_->getGVT();
-            if (gvt > current_lp->last_fossil_collect_gvt_) {
-                current_lp->last_fossil_collect_gvt_ = gvt;
+//             gvt = gvt_manager_->getGVT();
+//             if (gvt > current_lp->last_fossil_collect_gvt_) {
+//                 current_lp->last_fossil_collect_gvt_ = gvt;
 
-                // Fossil collect all queues for this lp
-                twfs_manager_->fossilCollect(gvt, current_lp_id);
-                output_manager_->fossilCollect(gvt, current_lp_id);
+//                 // Fossil collect all queues for this lp
+//                 twfs_manager_->fossilCollect(gvt, current_lp_id);
+//                 output_manager_->fossilCollect(gvt, current_lp_id);
 
-                unsigned int event_fossil_collect_time =
-                    state_manager_->fossilCollect(gvt, current_lp_id);
+//                 unsigned int event_fossil_collect_time =
+//                     state_manager_->fossilCollect(gvt, current_lp_id);
 
-                unsigned int num_committed =
-                    event_set_->fossilCollect(event_fossil_collect_time, current_lp_id);
+//                 unsigned int num_committed =
+//                     event_set_->fossilCollect(event_fossil_collect_time, current_lp_id);
 
-                tw_stats_->upCount(EVENTS_COMMITTED, thread_id, num_committed);
+//                 tw_stats_->upCount(EVENTS_COMMITTED, thread_id, num_committed);
 
-#ifdef TIMEWARP_EVENT_LOG
-                // Write event statistics to the log file
-                std::ofstream logfile;
-                logfile.open( eventLogFileName(thread_id).c_str(),
-                                        std::ofstream::out | std::ofstream::app );
-                while (event_log_[thread_id]->size()) {
-                    logfile << event_log_[thread_id]->pop_front();
-                }
-                logfile.close();
-#endif
-            }
+// #ifdef TIMEWARP_EVENT_LOG
+//                 // Write event statistics to the log file
+//                 std::ofstream logfile;
+//                 logfile.open( eventLogFileName(thread_id).c_str(),
+//                                         std::ofstream::out | std::ofstream::app );
+//                 while (event_log_[thread_id]->size()) {
+//                     logfile << event_log_[thread_id]->pop_front();
+//                 }
+//                 logfile.close();
+// #endif
+//             }
 
             // Move the next event from lp into the schedule queue
             // Also transfer old event to processed queue
@@ -582,6 +588,41 @@ void TimeWarpEventDispatcher::enqueueRemoteEvent(std::shared_ptr<Event> event,
         comm_manager_->insertMessage(std::move(event_msg));
 
         gvt_manager_->reportThreadSendMin(event->timestamp(), thread_id);
+    }
+}
+
+
+void TimeWarpEventDispatcher::fossilManager(){
+
+    // Fossil thread starts here
+    std::uint64_t n_gvt = 0;
+    while (!termination_manager_->terminationStatus()) {
+        if(n_gvt < gvt_manager_->getGVT())
+        {
+            std::uint64_t gvt = gvt_manager_->getGVT();
+            for(uint64_t current_lp_id = 0; current_lp_id < num_local_lps_; current_lp_id++){
+
+                // Fossil collect all queues for this lp
+                twfs_manager_->fossilCollect(gvt, current_lp_id);
+                output_manager_->fossilCollect(gvt, current_lp_id);
+
+                unsigned int event_fossil_collect_time =
+                    state_manager_->fossilCollect(gvt, current_lp_id);
+
+                unsigned int num_committed =
+                    event_set_->fossilCollect(event_fossil_collect_time, current_lp_id);
+
+                tw_stats_->upCount(EVENTS_COMMITTED, thread_id, num_committed);
+
+            }
+            n_gvt = gvt;
+        }
+        else{
+            if (!termination_manager_->threadPassive(thread_id)) {
+                termination_manager_->setThreadPassive(thread_id);
+            }
+        }   
+
     }
 }
 

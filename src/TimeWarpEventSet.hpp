@@ -71,6 +71,8 @@ public:
 
     unsigned int fossilCollect (unsigned int fossil_collect_time, unsigned int lp_id);
 
+    
+
 private:
     // Number of lps
     unsigned int num_of_lps_ = 0;
