@@ -6,18 +6,18 @@
 template <typename T>
 class CircularVectorIterator {
 private:
-    std::vector<T>* vec;
-    typename std::vector<T>::iterator current;
+    std::array<T,2000>* vec;
+    typename std::array<T,2000>::iterator current;
 
 public:
-    typedef typename std::vector<T>::iterator iterator_type;
+    typedef typename std::array<T,2000>::iterator iterator_type;
     typedef typename std::iterator_traits<iterator_type>::iterator_category iterator_category;
     typedef typename std::iterator_traits<iterator_type>::difference_type difference_type;
     typedef typename std::iterator_traits<iterator_type>::value_type value_type;
     typedef typename std::iterator_traits<iterator_type>::pointer pointer;
     typedef typename std::iterator_traits<iterator_type>::reference reference;
 
-    CircularVectorIterator(std::vector<T>& v, int current_) : vec(&v), current(v.begin() + current_) {}
+    CircularVectorIterator(std::array<T,2000>& v, int current_) : vec(&v), current(v.begin() + current_) {}
 
     CircularVectorIterator& operator++() {
         ++current;
@@ -110,7 +110,7 @@ public:
 };
 
 template <typename T>
-CircularVectorIterator<T> make_circular_iterator(std::vector<T>& vec, int start) {
+CircularVectorIterator<T> make_circular_iterator(std::array<T, 2000>& vec, int start) {
     return CircularVectorIterator<T>(vec, start);
 }
 

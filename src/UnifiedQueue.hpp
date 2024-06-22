@@ -6,6 +6,7 @@
 #include "CircularVectorIterator.hpp"
 #include "Event.hpp"
 #include <memory>
+#include <array>
 
 #include <chrono>
 #include <thread>
@@ -59,9 +60,9 @@ class UnifiedQueue
         }
     };
 private:
-    std::vector<Data> queue_;
+    std::array<Data, 2000> queue_;
     // 16 bits activeStart_, 1bit unprocessedSign, 16 bits unprocessedStart_, 1 bit freeSign, 16 bits freeStart_
-    // freeStart bit 0-16,           0x000000000000FFFF no shifting needed
+    // freeStart bit 0-16,          0x000000000000FFFF no shifting needed
     // freeSign bit 17,             0x0000000000010000
     // unprocessedStart bit 18-33   0x00000001FFFE0000  shift by 17
     // unprocessedSign bit 34       0x0000000200000000
@@ -69,18 +70,13 @@ private:
     //create variable for shifts too
 
     //define masks
-    std::atomic<uint64_t> enqueue_counter_ = 0;
-    std::atomic<uint64_t> dequeue_counter_ = 0;
-    std::atomic<uint64_t> rollback_counter_ = 0;
-    std::atomic<uint64_t> rollback_function_counter_ = 0;
-    std::atomic<uint64_t> invalid_counter_ = 0;
-    const uint64_t freeStartMask_ = 0x000000000000FFFF;
-    const uint64_t freeSignMask_ = 0x0000000000010000;
-    const uint64_t unprocessedStartMask_ = 0x00000001FFFE0000;
-    const uint64_t unprocessedSignMask_ = 0x0000000200000000;
-    const uint64_t activeStartMask_ = 0x0003FFFC00000000;
-    const uint64_t unprocessedStartShift_ = 17;
-    const uint64_t activeStartShift_ = 34;
+    static constexpr uint64_t freeStartMask_ = 0x000000000000FFFF;
+    static constexpr uint64_t freeSignMask_ = 0x0000000000010000;
+    static constexpr uint64_t unprocessedStartMask_ = 0x00000001FFFE0000;
+    static constexpr uint64_t unprocessedSignMask_ = 0x0000000200000000;
+    static constexpr uint64_t activeStartMask_ = 0x0003FFFC00000000;
+    static constexpr uint32_t unprocessedStartShift_ = 17;
+    static constexpr uint32_t activeStartShift_ = 34;
 
     uint64_t marker_; 
     comparator compare_; //currently not  used, as we are not sorting anymore
@@ -101,10 +97,10 @@ private:
     
 public:
     UnifiedQueue(uint16_t capacity=2000){
-        if(capacity > 2000){
-            throw std::invalid_argument("Capacity should be less than 1024");
-        }
-        queue_.resize(capacity); 
+        // if(capacity > 2000){
+        //     throw std::invalid_argument("Capacity should be less than 1024");
+        // }
+        // queue_.resize(capacity); 
         capacity_ = capacity;
         //init condition is unprocessedSign
         marker_ = 0x0000000200000000;
@@ -169,30 +165,30 @@ public:
 
     /// @brief returns whether unprocessed zone is empty
     /// @return 1 if unprocessed zone is empty, 0 otherwise
-    bool isUnprocessedZoneEmpty(){
-        return (marker_ & unprocessedSignMask_) ? true : false;  
+    bool isUnprocessedZoneEmpty() const {
+        return (marker_ & unprocessedSignMask_) != 0;  
     }
 
     /// @brief return whether unified queue is empty or not
     /// @return 1 if queue is full, 0 otherwise
-    bool isFull(){
-        return (marker_ &  freeSignMask_) ? true : false;
+    bool isFull() const {
+        return (marker_ &  freeSignMask_) != 0;
     }
 
     //getActiveStart
-    uint64_t getActiveStart(){
+    uint64_t getActiveStart() const {
 
         return (marker_ & activeStartMask_) >> activeStartShift_;
 
     }
 
     //getUnprocessedStart
-    uint64_t getUnprocessedStart(){
+    uint64_t getUnprocessedStart() const {
         return (marker_ & unprocessedStartMask_) >> unprocessedStartShift_ ;
     }
 
     //getFreeStart
-    uint64_t getFreeStart(){
+    uint64_t getFreeStart() const {
         return (marker_ & freeStartMask_);
     }
 
@@ -234,17 +230,17 @@ public:
     }
 
     //getCapacity
-    uint64_t capacity(){
+    inline uint64_t capacity() const{
         return capacity_;
     }
 
     //preIndex
-    uint64_t prevIndex(uint64_t index){
+    inline uint64_t prevIndex(uint64_t index) const {
         return (index + capacity() - 1) % capacity();
     }
 
     //nextIndex
-    uint64_t nextIndex(uint64_t index){
+    inline uint64_t nextIndex(uint64_t index) const {
         return (index + 1) % capacity();
     }
 
@@ -495,18 +491,12 @@ public:
         
         std::lock_guard<std::mutex> lock(lock_);
        
-        // enqueue_counter_++;
         uint64_t insertPos = getUnprocessedStart();
         
         if (isFull()){
             //throw message
             this->debug();
             std::cout << "Queue is full" << std::endl;
-            // std::__throw_bad_exception();
-            std::cout<<"Enqueue Counter: "<<enqueue_counter_<<std::endl;
-            std::cout<<"Dequeue Counter: "<<dequeue_counter_<<std::endl;
-            std::cout<<"Rollback Counter: "<<rollback_counter_<<std::endl;
-            std::cout<<"Rollback Function Counter: "<<rollback_function_counter_<<std::endl;
             abort();
         }
 
@@ -584,7 +574,6 @@ public:
             marker_= marker;
             if(queue_[UnprocessedStart(markerCopy)].isValid()){//this will make it so the function retrives next element if invalid element is found
                 success = true;
-                dequeue_counter_++;
             }
                     
             
@@ -759,7 +748,6 @@ public:
     /// @brief This fixes the position of the events
     /// No Markers change
     bool fixPosition(bool debug = false) {
-        rollback_function_counter_++;
         if (getActiveStart() == getUnprocessedStart() && !isFull()) {//active zone is empty
             return false;
         }
@@ -793,7 +781,6 @@ public:
             std::swap(queue_[prevIndex(swap_index_r)], queue_[swap_index_r]);
             
             swap_index_r = prevIndex(swap_index_r);
-            rollback_counter_++;
             setUnprocessedSign(false);
             setUnprocessedStart(swap_index_r);
             
@@ -940,7 +927,6 @@ public:
 
     //invalids the data at index
     void invalidateIndex(uint64_t index){
-        invalid_counter_++;
         queue_[index].invalidate();
     }
 
