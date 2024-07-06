@@ -450,21 +450,21 @@ public:
         if (low == high && isFull() == 0){
             return getUnprocessedStart();
         }
-        return linearSearch(element, low, high);
+        // return linearSearch(element, low, high);
 
         // // when there is no rotation in queue
-        // if (low < high) {
-        //     return binarySearch(element, low, high);
-        // }
-        // // rotation i.e fossileStart_ < activeStart_
-        // else {
-        //     if (compare_(element, queue_[capacity() - 1].getData())) {
-        //         return binarySearch(element, low, capacity() - 1);
-        //     }
-        //     else {
-        //         return binarySearch(element, 0, high);
-        //     }
-        // }
+        if (low < high) {
+            return binarySearch(element, low, high);
+        }
+        // rotation i.e fossileStart_ < activeStart_
+        else {
+            if (compare_(element, queue_[capacity() - 1].getData())) {
+                return binarySearch(element, low, capacity() - 1);
+            }
+            else {
+                return binarySearch(element, 0, high);
+            }
+        }
     }
 
     void deleteIndex(uint64_t index){
@@ -526,13 +526,15 @@ public:
                 else{
                     //didnt find positive counterpart and we insert
                     marker_ = marker;
-                    shiftElements(insertPos, FreeStart(markerCopy));
+                    std::rotate(queue_.rbegin() + insertPos, queue_.rbegin() + 1, queue_.rend());
+                    // shiftElements(insertPos, FreeStart(markerCopy));
                     queue_[insertPos] = element;
                 }
             }
             else{
                 marker_ = marker;
-                shiftElements(insertPos, FreeStart(markerCopy));
+                std::rotate(queue_.rbegin() + insertPos, queue_.rbegin() + 1, queue_.rend());
+                // shiftElements(insertPos, FreeStart(markerCopy));
                 queue_[insertPos] = element;  
             }
         }
