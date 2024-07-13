@@ -4,6 +4,9 @@
 #include <string>
 #include "serialization.hpp"
 
+#include <immintrin.h> // AVX2 intrinsics
+#include <array>
+
 namespace warped {
 
 struct compareEvents;
@@ -71,6 +74,11 @@ public:
     }
     void generateHash(){
         senderHashId_ = std::hash<std::string>{}(sender_name_);
+        //assign data into array
+        data_[0] = timestamp();
+        data_[1] = send_time_;
+        data_[2] = senderHashId_;
+        data_[3] = generation_;
     }
 
     // The name of the SimualtionObject that sends this event.
@@ -88,6 +96,9 @@ public:
     unsigned long long generation_ = 0;
 
     WARPED_REGISTER_SERIALIZABLE_MEMBERS(sender_name_, event_type_, send_time_, generation_)
+    static constexpr size_t EVENT_DATA_SIZE = 4;
+    std::array<uint64_t, EVENT_DATA_SIZE> data_;
+    //receive time/send_time/sender_name/event_type/generation
 
 };
 
@@ -102,6 +113,13 @@ public:
         event_type_ = EventType::NEGATIVE;
         generation_ = e->generation_;
         senderHashId_ = e->senderHashId_;
+        //assign data into array
+        data_[0] = receive_time_;
+        data_[1] = send_time_;
+        data_[2] = senderHashId_;
+        data_[3] = generation_;
+        
+
     }
 
     const std::string& receiverName() const {return receiver_name_;}
@@ -133,23 +151,41 @@ public:
     std::string receiver_name_ = "";
 };
 
-/* Compares two events to see if one has a receive time less than to the other */
+
 struct compareEvents {
 public:
     bool operator() (const std::shared_ptr<Event>& first,
                      const std::shared_ptr<Event>& second) const {
-        return  (first->timestamp() < second->timestamp()) ? true :
-                ((first->timestamp() != second->timestamp()) ? false :
-                  ((first->send_time_ < second->send_time_) ? true :
-                  ((first->send_time_ != second->send_time_) ? false :
-                    ((first->senderHashId_ < second->senderHashId_) ? true :
-                    ((first->senderHashId_ != second->senderHashId_) ? false :
-                      ((first->generation_ < second->generation_) ? true :
-                      ((first->generation_ != second->generation_) ? false :
-                        ((first->event_type_ < second->event_type_) ? true :
-                        ((first->event_type_ != second->event_type_) ? false : false)))))))));
-    }
+        // Create arrays of data to compare
+        // Ensure proper alignment
+        alignas(32) std::array<uint64_t, 4> a = first->data_;
+        alignas(32) std::array<uint64_t, 4> b = second->data_;
 
+
+        __m256i va = _mm256_load_si256(reinterpret_cast<const __m256i*>(a.data()));
+        __m256i vb = _mm256_load_si256(reinterpret_cast<const __m256i*>(b.data()));
+
+        // Compare the vectors
+        __m256i cmp_lt = _mm256_cmpgt_epi64(vb, va);
+        __m256i cmp_eq = _mm256_cmpeq_epi64(va, vb);
+
+        // Get the comparison results as a mask
+        int lt_mask = _mm256_movemask_pd(_mm256_castsi256_pd(cmp_lt));
+        int eq_mask = _mm256_movemask_pd(_mm256_castsi256_pd(cmp_eq));
+
+        // If any element in 'a' is less than 'b', return true
+        if (lt_mask != 0) {
+            return true;
+        }
+
+        // If all elements are equal, compare sender_name
+        if (eq_mask == 0xF) {
+            return first->event_type_ < second->event_type_;
+        }
+
+        // If we get here, 'a' is not less than 'b'
+        return false;
+    }
 };
 
 } // namespace warped
