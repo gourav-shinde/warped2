@@ -97,7 +97,7 @@ public:
 
     WARPED_REGISTER_SERIALIZABLE_MEMBERS(sender_name_, event_type_, send_time_, generation_)
     static constexpr size_t EVENT_DATA_SIZE = 4;
-    std::array<uint64_t, EVENT_DATA_SIZE> data_;
+    alignas(32) std::array<uint64_t, EVENT_DATA_SIZE> data_;
     //receive time/send_time/sender_name/event_type/generation
 
 };
@@ -157,13 +157,8 @@ public:
     bool operator() (const std::shared_ptr<Event>& first,
                      const std::shared_ptr<Event>& second) const {
         // Create arrays of data to compare
-        // Ensure proper alignment
-        alignas(32) std::array<uint64_t, 4> a = first->data_;
-        alignas(32) std::array<uint64_t, 4> b = second->data_;
-
-
-        __m256i va = _mm256_load_si256(reinterpret_cast<const __m256i*>(a.data()));
-        __m256i vb = _mm256_load_si256(reinterpret_cast<const __m256i*>(b.data()));
+        __m256i va = _mm256_load_si256(reinterpret_cast<const __m256i*>(first->data_.data()));
+        __m256i vb = _mm256_load_si256(reinterpret_cast<const __m256i*>(second->data_.data() ));
 
         // Compare the vectors
         __m256i cmp_lt = _mm256_cmpgt_epi64(vb, va);
@@ -174,10 +169,22 @@ public:
         int eq_mask = _mm256_movemask_pd(_mm256_castsi256_pd(cmp_eq));
 
         // If any element in 'a' is less than 'b', return true
-        if (lt_mask != 0) {
-            return true;
-        }
+        // Check receiveTime_
+        if (lt_mask & 0x1) return true;
+        if (!(eq_mask & 0x1)) return false;
 
+        // Check sendTime_
+        if (lt_mask & 0x2) return true;
+        if (!(eq_mask & 0x2)) return false;
+
+        // Check sendName_ hash
+        if (lt_mask & 0x4) return true;
+        if (!(eq_mask & 0x4)) return false;
+
+        // Check generation_
+        if (lt_mask & 0x8) return true;
+        if (!(eq_mask & 0x8)) return false;
+ 
         // If all elements are equal, compare sender_name
         if (eq_mask == 0xF) {
             return first->event_type_ < second->event_type_;
