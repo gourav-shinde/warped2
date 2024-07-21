@@ -131,18 +131,20 @@ struct compareEvents {
 public:
     bool operator() (const std::shared_ptr<Event>& first,
                      const std::shared_ptr<Event>& second) const {
-        return  (first->timestamp() < second->timestamp()) ? true :
-                ((first->timestamp() != second->timestamp()) ? false :
-                  ((first->send_time_ < second->send_time_) ? true :
-                  ((first->send_time_ != second->send_time_) ? false :
-                    ((first->sender_name_ < second->sender_name_) ? true :
-                    ((first->sender_name_ != second->sender_name_) ? false :
-                      ((first->generation_ < second->generation_) ? true :
-                      ((first->generation_ != second->generation_) ? false :
-                        ((first->event_type_ < second->event_type_) ? true :
-                        ((first->event_type_ != second->event_type_) ? false : false)))))))));
+        if (first->timestamp() != second->timestamp())
+            return first->timestamp() < second->timestamp();
+        
+        if (first->send_time_ != second->send_time_)
+            return first->send_time_ < second->send_time_;
+        
+        if (first->sender_name_ != second->sender_name_)
+            return first->sender_name_ < second->sender_name_;
+        
+        if (first->generation_ != second->generation_)
+            return first->generation_ < second->generation_;
+        
+        return first->event_type_ < second->event_type_;
     }
-
 };
 
 } // namespace warped
