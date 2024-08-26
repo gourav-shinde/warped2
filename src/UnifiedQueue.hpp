@@ -454,21 +454,21 @@ public:
         if (low == high && isFull() == 0){
             return getUnprocessedStart();
         }
-        return linearSearch(element, low, high);
+        // return linearSearch(element, low, high);
 
         // // when there is no rotation in queue
-        // if (low < high) {
-        //     return binarySearch(element, low, high);
-        // }
-        // // rotation i.e fossileStart_ < activeStart_
-        // else {
-        //     if (compare_(element, queue_[capacity() - 1].getData())) {
-        //         return binarySearch(element, low, capacity() - 1);
-        //     }
-        //     else {
-        //         return binarySearch(element, 0, high);
-        //     }
-        // }
+        if (low < high) {
+            return binarySearch(element, low, high);
+        }
+        // rotation i.e fossileStart_ < activeStart_
+        else {
+            if (compare_(element, queue_[capacity() - 1].getData())) {
+                return binarySearch(element, low, capacity() - 1);
+            }
+            else {
+                return binarySearch(element, 0, high);
+            }
+        }
     }
 
     void deleteIndex(uint64_t index){
