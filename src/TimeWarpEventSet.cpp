@@ -319,7 +319,7 @@ void TimeWarpEventSet::printEvent(std::shared_ptr<Event> event) {
               << "\tReceiver:   " << event->receiverName()                << "\n"
               << "\tSend time:  " << event->send_time_                    << "\n"
               << "\tRecv time:  " << event->timestamp()                   << "\n"
-              << "\tGeneratrion:" << event->generation_                   << "\n"
+            //   << "\tGeneratrion:" << event->generation_                   << "\n"
               << "\tType:       " << (unsigned int)event->event_type_     << "\n";
 }
 

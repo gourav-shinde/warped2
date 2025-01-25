@@ -369,7 +369,7 @@ void TimeWarpEventDispatcher::sendEvents(std::shared_ptr<Event> source_event,
         if (e->timestamp() <= max_sim_time_) {
             e->sender_name_ = sender_lp->name_;
             e->send_time_ = source_event->timestamp();
-            e->generation_ = sender_lp->generation_++;
+            // e->generation_ = sender_lp->generation_++;
 
             // Save sent events so that they can be sent as anti-messages in the case of a rollback
             output_manager_->insertEvent(source_event, e, sender_lp_id);

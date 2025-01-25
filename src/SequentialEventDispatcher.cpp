@@ -39,7 +39,7 @@ void SequentialEventDispatcher::startSimulation(
             if (e->timestamp() > max_sim_time_) continue;
             e->send_time_ = 0;
             e->sender_name_ = lp->name_;
-            e->generation_ = lp->generation_++;
+            // e->generation_ = lp->generation_++;
             events.push(e);
             valid_events.push_back(e);
         }
@@ -60,7 +60,7 @@ void SequentialEventDispatcher::startSimulation(
             if (e->timestamp() > max_sim_time_) continue;
             e->sender_name_ = receiver->name_;
             e->send_time_   = event->timestamp();
-            e->generation_ = receiver->generation_++;
+            // e->generation_ = receiver->generation_++;
             events.push(e);
             valid_events.push_back(e);
         }

@@ -3,6 +3,8 @@
 
 #include <string>
 #include "serialization.hpp"
+#include <tuple>
+#include <memory>
 
 namespace warped {
 
@@ -23,19 +25,16 @@ public:
     bool operator== (const Event &other) {
         return ((this->timestamp() == other.timestamp())
                 && (this->send_time_ == other.send_time_)
-                && (this->sender_name_ == other.sender_name_)
-                && (this->generation_ == other.generation_));
+                && (this->sender_name_ == other.sender_name_));
     }
 
-    bool operator< (const Event &other) {
+    bool operator< (const Event &other) const {
         return  (this->timestamp() < other.timestamp()) ? true :
                 ((this->timestamp() != other.timestamp()) ? false :
-                  ((this->send_time_ < other.send_time_) ? true :
-                  ((this->send_time_ != other.send_time_) ? false :
+                ((this->send_time_ < other.send_time_) ? true :
+                ((this->send_time_ != other.send_time_) ? false :
                     ((this->sender_name_ < other.sender_name_) ? true :
-                    ((this->sender_name_ != other.sender_name_) ? false :
-                      ((this->generation_ < other.generation_) ? true :
-                      ((this->generation_ != other.generation_) ? false : false)))))));
+                    ((this->sender_name_ != other.sender_name_) ? false : false)))));
     }
 
     bool operator<= (const Event &other) {
@@ -63,8 +62,7 @@ public:
     unsigned int base_size() {
         unsigned int size = sender_name_.length() +
                             sizeof(event_type_) +
-                            sizeof(send_time_) +
-                            sizeof(generation_);
+                            sizeof(send_time_);
         return size;
     }
 
@@ -79,9 +77,10 @@ public:
 
     // For differentiating same events which is caused by
     //  anti-message + regeneration of event.
-    unsigned long long generation_ = 0;
+    // unsigned long long generation_ = 0;
 
-    WARPED_REGISTER_SERIALIZABLE_MEMBERS(sender_name_, event_type_, send_time_, generation_)
+    // WARPED_REGISTER_SERIALIZABLE_MEMBERS(sender_name_, event_type_, send_time_, generation_)
+    WARPED_REGISTER_SERIALIZABLE_MEMBERS(sender_name_, event_type_, send_time_)
 
 };
 
@@ -94,7 +93,7 @@ public:
         sender_name_ = e->sender_name_;
         send_time_ = e->send_time_;
         event_type_ = EventType::NEGATIVE;
-        generation_ = e->generation_;
+        // generation_ = e->generation_;
     }
 
     const std::string& receiverName() const {return receiver_name_;}
@@ -116,7 +115,7 @@ public:
     InitialEvent() {
         sender_name_ = "";
         send_time_ = 0;
-        generation_ = 0;
+        // generation_ = 0;
    }
 
     const std::string& receiverName() const { return receiver_name_; }
@@ -127,22 +126,54 @@ public:
 };
 
 /* Compares two events to see if one has a receive time less than to the other */
+// struct compareEvents {
+// public:
+//     bool operator() (const std::shared_ptr<Event>& first,
+//                      const std::shared_ptr<Event>& second) const {
+//         return std::make_tuple(first->timestamp(), first->send_time_, first->sender_name_, first->generation_, first->event_type_) <
+//                std::make_tuple(second->timestamp(), second->send_time_, second->sender_name_, second->generation_, second->event_type_);
+//     }
+// };
+
+
+// struct compareEvents {
+// public:
+//     bool operator() (const std::shared_ptr<Event>& first,
+//                      const std::shared_ptr<Event>& second) const {
+//         // Compare the most significant field first
+//         if (first->timestamp() != second->timestamp())
+//             return first->timestamp() < second->timestamp();
+
+//         // Use std::tie for the remaining fields
+//         return std::tie(first->send_time_, first->sender_name_, first->generation_, first->event_type_) <
+//                std::tie(second->send_time_, second->sender_name_, second->generation_, second->event_type_);
+//     }
+// };
+
+
 struct compareEvents {
 public:
     bool operator() (const std::shared_ptr<Event>& first,
                      const std::shared_ptr<Event>& second) const {
-        return  (first->timestamp() < second->timestamp()) ? true :
-                ((first->timestamp() != second->timestamp()) ? false :
-                  ((first->send_time_ < second->send_time_) ? true :
-                  ((first->send_time_ != second->send_time_) ? false :
-                    ((first->sender_name_ < second->sender_name_) ? true :
-                    ((first->sender_name_ != second->sender_name_) ? false :
-                      ((first->generation_ < second->generation_) ? true :
-                      ((first->generation_ != second->generation_) ? false :
-                        ((first->event_type_ < second->event_type_) ? true :
-                        ((first->event_type_ != second->event_type_) ? false : false)))))))));
-    }
+        // Compare timestamp first
+        if (first->timestamp() != second->timestamp())
+            return first->timestamp() < second->timestamp();
 
+        // Compare send_time_
+        if (first->send_time_ != second->send_time_)
+            return first->send_time_ < second->send_time_;
+
+        // Compare sender_name_
+        if (first->sender_name_ != second->sender_name_)
+            return first->sender_name_ < second->sender_name_;
+
+        // Compare generation_
+        // if (first->generation_ != second->generation_)
+        //     return first->generation_ < second->generation_;
+
+        // Compare event_type_
+        return first->event_type_ < second->event_type_;
+    }
 };
 
 } // namespace warped
