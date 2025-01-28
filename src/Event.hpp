@@ -6,6 +6,7 @@
 
 #include <immintrin.h> // AVX2 intrinsics
 #include <array>
+#include "xxhash.h"
 
 namespace warped {
 
@@ -73,7 +74,7 @@ public:
         return size;
     }
     void generateHash(){
-        senderHashId_ = std::hash<std::string>{}(sender_name_);
+        senderHashId_ = XXH64(sender_name_.data(), sender_name_.size(), 0); // Seed = 0
         //assign data into array
         data_[0] = timestamp();
         data_[1] = send_time_;
@@ -118,8 +119,6 @@ public:
         data_[1] = send_time_;
         data_[2] = senderHashId_;
         data_[3] = generation_;
-        
-
     }
 
     const std::string& receiverName() const {return receiver_name_;}
@@ -152,11 +151,55 @@ public:
 };
 
 
+// struct compareEvents {
+// public:
+//     bool operator() (const std::shared_ptr<Event>& first,
+//                      const std::shared_ptr<Event>& second) const {
+//         // Create arrays of data to compare
+//         __m256i va = _mm256_load_si256(reinterpret_cast<const __m256i*>(first->data_.data()));
+//         __m256i vb = _mm256_load_si256(reinterpret_cast<const __m256i*>(second->data_.data() ));
+
+//         // Compare the vectors
+//         __m256i cmp_lt = _mm256_cmpgt_epi64(vb, va);
+//         __m256i cmp_eq = _mm256_cmpeq_epi64(va, vb);
+
+//         // Get the comparison results as a mask
+//         int lt_mask = _mm256_movemask_pd(_mm256_castsi256_pd(cmp_lt));
+//         int eq_mask = _mm256_movemask_pd(_mm256_castsi256_pd(cmp_eq));
+
+//         // If any element in 'a' is less than 'b', return true
+//         // Check receiveTime_
+//         if (lt_mask & 0x1) return true;
+//         if (!(eq_mask & 0x1)) return false;
+
+//         // Check sendTime_
+//         if (lt_mask & 0x2) return true;
+//         if (!(eq_mask & 0x2)) return false;
+
+//         // Check sendName_ hash
+//         if (lt_mask & 0x4) return true;
+//         if (!(eq_mask & 0x4)) return false;
+
+//         // Check generation_
+//         if (lt_mask & 0x8) return true;
+//         if (!(eq_mask & 0x8)) return false;
+ 
+//         // If all elements are equal, compare sender_name
+//         if (eq_mask == 0xF) {
+//             return first->event_type_ < second->event_type_;
+//         }
+
+//         // If we get here, 'a' is not less than 'b'
+//         return false;
+//     }
+// };
+
+
+
 struct compareEvents {
 public:
     bool operator() (const std::shared_ptr<Event>& first,
                      const std::shared_ptr<Event>& second) const {
-        // Create arrays of data to compare
         __m256i va = _mm256_load_si256(reinterpret_cast<const __m256i*>(first->data_.data()));
         __m256i vb = _mm256_load_si256(reinterpret_cast<const __m256i*>(second->data_.data() ));
 
