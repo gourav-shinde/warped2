@@ -26,7 +26,7 @@ public:
     bool operator== (const Event &other) {
         return ((this->timestamp() == other.timestamp())
                 && (this->send_time_ == other.send_time_)
-                && (this->sender_name_ == other.sender_name_)
+                && (this->senderHashId_ == other.senderHashId_)
                 && (this->generation_ == other.generation_));
     }
 
@@ -35,8 +35,8 @@ public:
                 ((this->timestamp() != other.timestamp()) ? false :
                   ((this->send_time_ < other.send_time_) ? true :
                   ((this->send_time_ != other.send_time_) ? false :
-                    ((this->sender_name_ < other.sender_name_) ? true :
-                    ((this->sender_name_ != other.sender_name_) ? false :
+                    ((this->senderHashId_ < other.senderHashId_) ? true :
+                    ((this->senderHashId_ != other.senderHashId_) ? false :
                       ((this->generation_ < other.generation_) ? true :
                       ((this->generation_ != other.generation_) ? false : false)))))));
     }
