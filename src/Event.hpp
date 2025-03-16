@@ -71,7 +71,7 @@ public:
         return size;
     }
     void generateHash(){
-        senderHashId_ = senderHashId_ = XXH64(sender_name_.data(), sender_name_.size(), 0); // Seed = 0
+        senderHashId_ = XXH64(sender_name_.data(), sender_name_.size(), 0); // Seed = 0
     }
 
     // The name of the SimualtionObject that sends this event.
