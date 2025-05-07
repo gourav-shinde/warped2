@@ -21,6 +21,7 @@
 #include "EventDispatcher.hpp"
 #include "LTSFQueue.hpp"
 #include "Partitioner.hpp"
+#include "Latency.hpp"
 #include "LogicalProcess.hpp"
 #include "TimeWarpMPICommunicationManager.hpp"
 #include "TimeWarpGVTManager.hpp"
@@ -37,6 +38,7 @@ WARPED_REGISTER_POLYMORPHIC_SERIALIZABLE_CLASS(warped::Event)
 WARPED_REGISTER_POLYMORPHIC_SERIALIZABLE_CLASS(warped::NegativeEvent)
 
 namespace warped {
+
 
 THREAD_LOCAL_SPECIFIER unsigned int TimeWarpEventDispatcher::thread_id;
 
@@ -60,6 +62,8 @@ TimeWarpEventDispatcher::TimeWarpEventDispatcher(unsigned int max_sim_time,
 
 void TimeWarpEventDispatcher::startSimulation(const std::vector<std::vector<LogicalProcess*>>&
                                               lps) {
+                                                
+    
     initialize(lps);
 
     // Create worker threads
@@ -135,6 +139,9 @@ void TimeWarpEventDispatcher::startSimulation(const std::vector<std::vector<Logi
     if (comm_manager_->getID() == 0) {
         tw_stats_->writeToFile(num_seconds);
         tw_stats_->printStats();
+        // Latency tracker here
+        TimeWarpedLatency& latency = TimeWarpedLatency::getInstance();
+        latency.printLatencyStats();
     }
 }
 
@@ -156,7 +163,8 @@ void TimeWarpEventDispatcher::onGVT(unsigned int gvt) {
 }
 
 void TimeWarpEventDispatcher::processEvents(unsigned int id) {
-
+    TimeWarpedLatency& latency = TimeWarpedLatency::getInstance();
+    util::LatencyTracker tracker{ latency.latency_stats_[PROCESS_EVENT_LATENCY] };
     thread_id = id;
     unsigned int local_gvt_flag;
     unsigned int gvt = 0;

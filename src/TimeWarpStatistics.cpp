@@ -151,7 +151,7 @@ void TimeWarpStatistics::writeToFile(double num_seconds) {
         << global_stats_[LOCAL_POSITIVE_EVENTS_SENT]  << ",\t"
         << global_stats_[REMOTE_POSITIVE_EVENTS_SENT] << ",\t"
         << global_stats_[LOCAL_NEGATIVE_EVENTS_SENT]  << ",\t"
-        << global_stats_[REMOTE_NEGATIVE_EVENTS_SENT] << ",\t"
+        << global_stats_[REMOTE_NEGATIVE_EVENTS_SENT] << ",\t" 
         << global_stats_[PRIMARY_ROLLBACKS]           << ",\t"
         << global_stats_[SECONDARY_ROLLBACKS]         << ",\t"
         << global_stats_[COAST_FORWARDED_EVENTS]      << ",\t"
@@ -162,9 +162,11 @@ void TimeWarpStatistics::writeToFile(double num_seconds) {
         << global_stats_[SCHEDULED_EVENT_SWAPS_SUCCESS] << ",\t"
         << global_stats_[SCHEDULED_EVENT_SWAPS_FAILURE] << ",\t"
         << global_stats_[AVERAGE_MAX_MEMORY]          << std::endl;
-
+    
     ofs.close();
 }
+
+
 
 void TimeWarpStatistics::printStats() {
 
@@ -201,7 +203,6 @@ void TimeWarpStatistics::printStats() {
 
               << "\tAverage maximum memory:    " << global_stats_[AVERAGE_MAX_MEMORY] << " MB\n"
               << "\tGVT cycles:                " << global_stats_[GVT_CYCLES] << std::endl << std::endl;
-
     delete [] local_pos_sent_by_node_;
     delete [] local_neg_sent_by_node_;
     delete [] remote_pos_sent_by_node_;
